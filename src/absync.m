@@ -306,6 +306,8 @@ void printHelp()
   printf("\n");
   printf("   absync -w OUTFILE.XML\n");
   printf("   absync [--no-update] [--no-delete] -r INFILE.XML\n");
+  printf("   absync --replace INFILE.XML\n");
+  printf("   absync --delete\n");
   printf("\n");
   printf("absync -w dumps the Address Book to the named file (or standard output\n");
   printf("if filename is \"-\").\n");
@@ -316,12 +318,24 @@ void printHelp()
   printf("modify any entries.  If --no-delete is specified, the tool will not\n");
   printf("delete any entries.\n");
   printf("\n");
+  printf("absync --replace deletes the local address book and replaces its\n");
+  printf("contents with the entries loaded from the given XML file.  USE WITH\n");
+  printf("CAUTION.\n");
+  printf("\n");
+  printf("absync --delete deletes the local address book.  USE WITH CAUTION.\n");
+  printf("\n");
+}
+
+ABAddressBook* absyncGetAddressBook()
+{
+  ABAddressBook *abook = [ABAddressBook addressBook];
+  [abook retain];
+  return abook;
 }
 
 void absyncWrite(NSString *filename)
 {
-  ABAddressBook *abook = [ABAddressBook addressBook];
-  [abook retain];
+  ABAddressBook *abook = absyncGetAddressBook();
   NSXMLDocument *xmlDoc = absyncAddressBookXml(abook);
   NSData *data = [xmlDoc XMLDataWithOptions:NSXMLNodePrettyPrint];
   if ([filename compare:@"-"] == NSOrderedSame)
@@ -346,6 +360,27 @@ void absyncWrite(NSString *filename)
           printf("%s", [[NSString stringWithFormat:@"ERROR: could not write to file \"%@\"\n", filename] UTF8String]);
         }
     }
+  [abook release];
+}
+
+void absyncDeleteAddressBook()
+{
+  ABAddressBook *abook = absyncGetAddressBook();
+
+  // delete all groups
+  for (ABGroup *group in [abook groups])
+    {
+      [abook removeRecord:group];
+    }
+
+  // delete all persons
+  for (ABPerson *person in [abook people])
+    {
+      [abook removeRecord:person];
+    }
+
+  [abook save];
+
   [abook release];
 }
 
@@ -389,6 +424,9 @@ enum {
 
   RUN_MODE_READ = 1,
   RUN_MODE_WRITE,
+
+  RUN_MODE_REPLACE = 254,
+  RUN_MODE_DELETE
 };
 
 int main (int argc, const char * argv[])
@@ -412,6 +450,8 @@ int main (int argc, const char * argv[])
              We distinguish them by their indices. */
           {"write" ,    no_argument, 0, 'w'},
           {"read",      no_argument, 0, 'r'},
+          {"replace",   no_argument, 0, RUN_MODE_REPLACE},
+          {"delete",    no_argument, 0, RUN_MODE_DELETE},
           {"help",      no_argument, 0, 'h'},
           {0, 0, 0, 0}
         };
@@ -450,6 +490,17 @@ int main (int argc, const char * argv[])
             }
           mode = RUN_MODE_WRITE;
           break;
+        case RUN_MODE_REPLACE:
+        case RUN_MODE_DELETE:
+          if (mode != RUN_MODE_INVALID)
+            {
+              printf("ERROR: Cannot specify multiple run modes\n");
+              printHelp();
+              [pool release];
+              exit(1);
+            }
+          mode = c;
+          break;
         case 'h':
         case '?':
         default:
@@ -467,25 +518,39 @@ int main (int argc, const char * argv[])
       exit(1);
     }
 
-  if (argc <= optind)
+  NSString *filename = [NSString string];
+  if (mode != RUN_MODE_DELETE)
     {
-      printf("ERROR: Must specify an xml filename\n");
-      printHelp();
-      [pool release];
-      exit(1);
+      if (argc <= optind)
+        {
+          printf("ERROR: Must specify an xml filename\n");
+          printHelp();
+          [pool release];
+          exit(1);
+        }
+      else
+        {
+          filename = [NSString stringWithUTF8String:argv[optind]];
+        }
     }
-
-  NSString *filename = [NSString stringWithUTF8String:argv[optind]];
 
   switch (mode)
     {
     case RUN_MODE_READ:
-      printf("ERROR: Function not yet implemented\n");
+      printf("ERROR: Function read not yet implemented\n");
       [pool release];
       exit(1);
       break;
     case RUN_MODE_WRITE:
       absyncWrite(filename);
+      break;
+    case RUN_MODE_REPLACE:
+      printf("ERROR: Function replace not yet implemented\n");
+      [pool release];
+      exit(1);
+      break;
+    case RUN_MODE_DELETE:
+      absyncDeleteAddressBook();
       break;
     default:
       printf("ERROR: Invalid run mode\n");
