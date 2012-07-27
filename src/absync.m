@@ -349,12 +349,19 @@ void absyncWrite(NSString *filename)
   [abook release];
 }
 
+enum {
+  RUN_MODE_INVALID = 0,
+
+  RUN_MODE_READ = 1,
+  RUN_MODE_WRITE,
+};
+
 int main (int argc, const char * argv[])
 {
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
   int c;
-  int mode = 0;
+  int mode = RUN_MODE_INVALID;
   // flags for the read-function
   int update_flag = 1;
   int delete_flag = 1;
@@ -389,24 +396,24 @@ int main (int argc, const char * argv[])
           /* If this option set a flag, do nothing else now. */
           break;
         case 'r':
-          if (mode != 0)
+          if (mode != RUN_MODE_INVALID)
             {
               printf("ERROR: Cannot specify both -r and -w\n");
               printHelp();
               [pool release];
               exit(1);
             }
-          mode = 1;
+          mode = RUN_MODE_READ;
           break;
         case 'w':
-          if (mode != 0)
+          if (mode != RUN_MODE_INVALID)
             {
               printf("ERROR: Cannot specify both -r and -w\n");
               printHelp();
               [pool release];
               exit(1);
             }
-          mode = 2;
+          mode = RUN_MODE_WRITE;
           break;
         case 'h':
         case '?':
@@ -417,7 +424,7 @@ int main (int argc, const char * argv[])
         }
     } // end while(1)
 
-  if (mode == 0)
+  if (mode == RUN_MODE_INVALID)
     {
       printf("ERROR: Must specify either read or write mode\n");
       printHelp();
@@ -435,15 +442,20 @@ int main (int argc, const char * argv[])
 
   NSString *filename = [NSString stringWithUTF8String:argv[optind]];
 
-  if (mode == 1)
+  switch (mode)
     {
+    case RUN_MODE_READ:
       printf("ERROR: Function not yet implemented\n");
       [pool release];
       exit(1);
-    }
-  else if (mode == 2)
-    {
+      break;
+    case RUN_MODE_WRITE:
       absyncWrite(filename);
+      break;
+    default:
+      printf("ERROR: Invalid run mode\n");
+      [pool release];
+      exit(1);
     }
 
   [pool release];
