@@ -98,7 +98,7 @@ NSDateFormatter* absyncDateFormatter()
 }
 @end
 
-NSXMLElement* absyncPersonXml(ABPerson *person)
+NSXMLElement* absyncPersonXml(ABPerson *person, BOOL isMe)
 {
   NSArray *personProperties = [NSArray arrayWithObjects:
                                          kABTitleProperty,
@@ -137,6 +137,11 @@ NSXMLElement* absyncPersonXml(ABPerson *person)
                                        nil];
 
   NSXMLElement *xmlPerson = (NSXMLElement*)[NSXMLNode elementWithName:@"Person"];
+  // is me?
+  if (isMe)
+    {
+      [xmlPerson addChild:[NSXMLNode elementWithName:@"IsMe" stringValue:@"1"]];
+    }
   // person groups
   NSMutableArray *sortedGroups = [NSMutableArray arrayWithCapacity:0];
   for (ABGroup *group in [person parentGroups])
@@ -281,7 +286,7 @@ NSXMLDocument* absyncAddressBookXml(ABAddressBook *abook)
   NSXMLElement *root = (NSXMLElement*)[NSXMLNode elementWithName:@"AddressBook"];
   for (ABPerson* person in people)
     {
-      [root addChild:absyncPersonXml(person)];
+      [root addChild:absyncPersonXml(person, [abook me] == person)];
     }
   NSXMLDocument *xmlDoc = [[NSXMLDocument alloc] initWithRootElement:root];
   [xmlDoc setVersion:@"1.0"];
