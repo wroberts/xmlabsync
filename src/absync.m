@@ -349,6 +349,41 @@ void absyncWrite(NSString *filename)
   [abook release];
 }
 
+NSXMLDocument* absyncLoadXml(NSString *filename)
+{
+  NSXMLDocument *xmlDoc=nil;
+  NSError *err=nil;
+  NSURL *fileUrl = [NSURL fileURLWithPath:filename];
+  if (!fileUrl)
+    {
+      printf("%s", [[NSString stringWithFormat:@"ERROR: Can't create an URL from file %@", filename] UTF8String]);
+      return nil;
+    }
+  xmlDoc = [[NSXMLDocument alloc] initWithContentsOfURL:fileUrl
+                                  options:0
+                                  error:&err];
+  if (xmlDoc == nil)
+    {
+      xmlDoc = [[NSXMLDocument alloc] initWithContentsOfURL:fileUrl
+                                      options:NSXMLDocumentTidyXML
+                                      error:&err];
+    }
+  if (xmlDoc == nil)
+    {
+      if (err) {
+        /*handle error*/
+      }
+      return nil;
+    }
+
+  if (err)
+    {
+      /*handle error*/
+      return nil;
+    }
+  return xmlDoc;
+}
+
 enum {
   RUN_MODE_INVALID = 0,
 
