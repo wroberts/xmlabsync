@@ -177,7 +177,8 @@ NSXMLElement* absyncPersonXml(ABPerson *person)
             {
               // sort keys of the multivalue
               NSMutableArray *sortedKeys = [NSMutableArray arrayWithCapacity:0];
-              for (int i = 0; i < [value count]; i++)
+              int i = 0;
+              for (; i < [value count]; i++)
                 {
                   [sortedKeys addObject:[MultiStringItem itemWithKey:[value labelAtIndex:i] index:i]];
                 }
@@ -324,7 +325,7 @@ void absyncWrite(NSString *filename)
       NSString *output = [[NSString alloc] initWithBytes:[data bytes]
                                            length:[data length]
                                            encoding:NSUTF8StringEncoding];
-      printf([output UTF8String]);
+      printf("%s", [output UTF8String]);
       printf("\n");
     }
   else
@@ -337,7 +338,7 @@ void absyncWrite(NSString *filename)
                       error:&errorPtr];
       if (!success)
         {
-          printf([NSString stringWithFormat:@"ERROR: could not write to file \"%@\"\n", filename]);
+          printf("%s", [[NSString stringWithFormat:@"ERROR: could not write to file \"%@\"\n", filename] UTF8String]);
         }
     }
   [abook release];
@@ -370,7 +371,8 @@ int main (int argc, const char * argv[])
       /* getopt_long stores the option index here. */
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "rwh", long_options, &option_index);
+      c = getopt_long (argc, (char * const *)argv,
+					   "rwh", long_options, &option_index);
 
       /* Detect the end of the options. */
       if (c == -1)
