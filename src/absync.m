@@ -2,7 +2,7 @@
 #import <AddressBook/AddressBook.h>
 #include <getopt.h>
 
-NSString* absyncPersonFullName(ABPerson *person)
+NSString* absyncAbPersonFullName(ABPerson *person)
 {
   NSString *name = [NSString string];
   if ([[person valueForProperty:kABPersonFlags] intValue] & kABShowAsCompany)
@@ -39,7 +39,7 @@ NSInteger absyncPersonSort(ABPerson *person1, ABPerson *person2, void *context)
   return [absyncPersonFullName(person1) compare:absyncPersonFullName(person2)];
 }
 
-NSDateFormatter* absyncDateFormatter()
+NSDateFormatter* absyncIsoDateFormatter()
 {
   NSDateFormatter *dateFormat = [[NSDateFormatter alloc]
                                   initWithDateFormat:@"%Y-%m-%d"
@@ -98,43 +98,48 @@ NSDateFormatter* absyncDateFormatter()
 }
 @end
 
-NSXMLElement* absyncPersonXml(ABPerson *person, BOOL isMe)
+NSArray* absyncAbPersonRelevantProperties()
 {
-  NSArray *personProperties = [NSArray arrayWithObjects:
-                                         kABTitleProperty,
-                                       kABFirstNameProperty,
-                                       kABFirstNamePhoneticProperty,
-                                       kABMiddleNameProperty,
-                                       kABMiddleNamePhoneticProperty,
-                                       kABLastNameProperty,
-                                       kABLastNamePhoneticProperty,
-                                       kABSuffixProperty,
-                                       kABNicknameProperty,
-                                       kABMaidenNameProperty,
-                                       kABJobTitleProperty,
-                                       kABBirthdayProperty,
-                                       //kABBirthdayComponentsProperty, //OS X 10.7+ only
-                                       kABOrganizationProperty,
-                                       //kABHomePageProperty, // deprecated OS X 10.4+
-                                       kABURLsProperty,
-                                       kABCalendarURIsProperty,
-                                       kABEmailProperty,
-                                       kABAddressProperty,
-                                       kABOtherDatesProperty,
-                                       //kABOtherDateComponentsProperty, //OS X 10.7+ only
-                                       kABRelatedNamesProperty,
-                                       kABDepartmentProperty,
-                                       kABPersonFlags,
-                                       kABPhoneProperty,
-                                       //kABInstantMessageProperty, //OS X 10.7+ only
-                                       kABAIMInstantProperty,
-                                       kABJabberInstantProperty,
-                                       kABMSNInstantProperty,
-                                       kABYahooInstantProperty,
-                                       kABICQInstantProperty,
-                                       kABNoteProperty,
-                                       //kABSocialProfileProperty, //OS X 10.7+ only
-                                       nil];
+  return [NSArray arrayWithObjects:
+                    kABTitleProperty,
+                  kABFirstNameProperty,
+                  kABFirstNamePhoneticProperty,
+                  kABMiddleNameProperty,
+                  kABMiddleNamePhoneticProperty,
+                  kABLastNameProperty,
+                  kABLastNamePhoneticProperty,
+                  kABSuffixProperty,
+                  kABNicknameProperty,
+                  kABMaidenNameProperty,
+                  kABJobTitleProperty,
+                  kABBirthdayProperty,
+                  //kABBirthdayComponentsProperty, //OS X 10.7+ only
+                  kABOrganizationProperty,
+                  //kABHomePageProperty, // deprecated OS X 10.4+
+                  kABURLsProperty,
+                  kABCalendarURIsProperty,
+                  kABEmailProperty,
+                  kABAddressProperty,
+                  kABOtherDatesProperty,
+                  //kABOtherDateComponentsProperty, //OS X 10.7+ only
+                  kABRelatedNamesProperty,
+                  kABDepartmentProperty,
+                  kABPersonFlags,
+                  kABPhoneProperty,
+                  //kABInstantMessageProperty, //OS X 10.7+ only
+                  kABAIMInstantProperty,
+                  kABJabberInstantProperty,
+                  kABMSNInstantProperty,
+                  kABYahooInstantProperty,
+                  kABICQInstantProperty,
+                  kABNoteProperty,
+                  //kABSocialProfileProperty, //OS X 10.7+ only
+                  nil];
+}
+
+NSXMLElement* absyncAbPersonBuildXml(ABPerson *person, BOOL isMe)
+{
+  NSArray *personProperties = absyncAbPersonRelevantProperties();
 
   NSXMLElement *xmlPerson = (NSXMLElement*)[NSXMLNode elementWithName:@"Person"];
   // is me?
@@ -174,7 +179,7 @@ NSXMLElement* absyncPersonXml(ABPerson *person, BOOL isMe)
             {
               [xmlPerson addChild:[NSXMLNode elementWithName:property
                                              children:[NSArray arrayWithObjects:
-                                                                 [NSXMLNode textWithStringValue:[absyncDateFormatter() stringFromDate:value]], nil]
+                                                                 [NSXMLNode textWithStringValue:[absyncIsoDateFormatter() stringFromDate:value]], nil]
                                              attributes:[NSArray arrayWithObjects:
                                                                    [NSXMLNode attributeWithName:@"type" stringValue:@"date"], nil]]];
             }
@@ -224,7 +229,7 @@ NSXMLElement* absyncPersonXml(ABPerson *person, BOOL isMe)
                                                   children:[NSArray arrayWithObjects:
                                                                       [NSXMLNode elementWithName:@"key" stringValue:[item key]],
                                                                     [NSXMLNode elementWithName:@"value" stringValue:
-                                                                                 [absyncDateFormatter() stringFromDate:[value valueAtIndex:[item index]]]],
+                                                                                 [absyncIsoDateFormatter() stringFromDate:[value valueAtIndex:[item index]]]],
                                                                     nil]
                                                   attributes:nil];
                       [xmlValue addChild:xmlItem];
@@ -279,14 +284,14 @@ NSXMLElement* absyncPersonXml(ABPerson *person, BOOL isMe)
   return xmlPerson;
 }
 
-NSXMLDocument* absyncAddressBookXml(ABAddressBook *abook)
+NSXMLDocument* absyncAddressBookBuildXml(ABAddressBook *abook)
 {
   // sort the address book entries
-  NSArray *people = [[abook people] sortedArrayUsingFunction:absyncPersonSort context:NULL];
+  NSArray *people = [[abook people] sortedArrayUsingFunction:absyncAbPersonSort context:NULL];
   NSXMLElement *root = (NSXMLElement*)[NSXMLNode elementWithName:@"AddressBook"];
   for (ABPerson* person in people)
     {
-      [root addChild:absyncPersonXml(person, [abook me] == person)];
+      [root addChild:absyncAbPersonBuildXml(person, [abook me] == person)];
     }
   NSXMLDocument *xmlDoc = [[NSXMLDocument alloc] initWithRootElement:root];
   [xmlDoc setVersion:@"1.0"];
@@ -333,12 +338,12 @@ ABAddressBook* absyncGetAddressBook()
   return abook;
 }
 
-void absyncWrite(NSString *filename)
+void absyncWriteAddressBook(NSString *filename)
 {
   ABAddressBook *abook = absyncGetAddressBook();
-  NSXMLDocument *xmlDoc = absyncAddressBookXml(abook);
+  NSXMLDocument *xmlDoc = absyncAddressBookBuildXml(abook);
   NSData *data = [xmlDoc XMLDataWithOptions:NSXMLNodePrettyPrint];
-  if ([filename compare:@"-"] == NSOrderedSame)
+  if ([filename isEqualToString:@"-"])
     {
       // print to standard output
       NSString *output = [[NSString alloc] initWithBytes:[data bytes]
@@ -386,8 +391,8 @@ void absyncDeleteAddressBook()
 
 NSXMLDocument* absyncLoadXml(NSString *filename)
 {
-  NSXMLDocument *xmlDoc=nil;
-  NSError *err=nil;
+  NSXMLDocument *xmlDoc = nil;
+  NSError *err = nil;
   NSURL *fileUrl = [NSURL fileURLWithPath:filename];
   if (!fileUrl)
     {
@@ -542,7 +547,7 @@ int main (int argc, const char * argv[])
       exit(1);
       break;
     case RUN_MODE_WRITE:
-      absyncWrite(filename);
+      absyncWriteAddressBook(filename);
       break;
     case RUN_MODE_REPLACE:
       printf("ERROR: Function replace not yet implemented\n");
