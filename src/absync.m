@@ -158,7 +158,7 @@ NSXMLElement* absyncPersonXml(ABPerson *person, BOOL isMe)
   // person properties
   for (NSString* property in personProperties)
     {
-      if ([person valueForProperty:property])
+      if ([property isEqualToString:kABPersonFlags] || [person valueForProperty:property])
         {
           id value = [person valueForProperty:property];
           // string
