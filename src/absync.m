@@ -195,7 +195,7 @@ NSXMLElement* absyncAbPersonBuildXml(ABPerson *person, BOOL isMe)
           else if ([value isKindOfClass:[ABMultiValue class]])
             {
               // sort keys of the multivalue
-              // NYI: store primaryIdentifier
+              // NYI: store identifiers (UUIDs), primaryIdentifier?
               NSMutableArray *sortedKeys = [NSMutableArray arrayWithCapacity:0];
               int i = 0;
               for (; i < [value count]; i++)
