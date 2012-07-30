@@ -456,7 +456,6 @@ void absyncDeleteAddressBook()
     }
 
   [abook save];
-
   [abook release];
 }
 
@@ -962,7 +961,7 @@ void absyncInjectXmlPersonGroups(NSXMLElement *xmlPerson, ABPerson *abPerson, AB
           if (![xmlGroups member:[group valueForProperty:kABGroupNameProperty]])
             {
               [group removeMember:abPerson];
-              [abook save];
+              //[abook save];
             }
         }
     }
