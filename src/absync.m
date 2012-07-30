@@ -922,6 +922,7 @@ void absyncInjectXmlPerson(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddres
             }
         }
       // NYI: store identifiers (UUIDs), primaryIdentifier?
+      [abPerson setValue:abPersonMV forProperty:propName];
     }
   // remove irrelevant properties
   if (delete_flag)
