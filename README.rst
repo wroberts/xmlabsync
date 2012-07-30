@@ -5,7 +5,8 @@
 Requirements
 ============
 
-* CMake
+* Mac OS X 10.4 or later
+* CMake 2.6 or later
 
 Building
 ========
