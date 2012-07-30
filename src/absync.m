@@ -476,6 +476,10 @@ void absyncDeleteAddressBook()
   [value release];
   [super dealloc];
 }
+- (NSString *)description
+{
+  return [NSString stringWithFormat:@"<PersonPropertyMatch property=\"%@\" value=\"%@\" weighting=%d>", property, value, weighting];
+}
 - (NSInteger)scoreAbPerson:(ABPerson*)abPerson
 {
   if ([[abPerson valueForProperty:property] isEqualToString:value])
