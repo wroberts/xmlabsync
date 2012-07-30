@@ -539,6 +539,8 @@ ABPerson* absyncFindMatchingAbPerson(NSXMLElement *xmlPerson, ABAddressBook *abo
     {
       if ([propertyWeighting objectForKey:[child name]])
         {
+		  if ([[child name] isEqualToString:kABOrganizationProperty] && !absyncXmlPersonIsCompany(xmlPerson))
+			continue;
           [props setObject:[[PersonPropertyMatch alloc] initWithProperty:[child name]
                                                         value:[child stringValue]
                                                         weighting:[[propertyWeighting objectForKey:[child name]] integerValue]]
@@ -573,6 +575,8 @@ NSXMLElement* absyncFindMatchingXmlPerson(ABPerson *abPerson, NSArray *xmlPeople
     {
       if ([abPerson valueForProperty:propName])
         {
+		  if ([propName isEqualToString:kABOrganizationProperty] && !absyncAbPersonIsCompany(abPerson))
+			continue;
           [props setObject:[[PersonPropertyMatch alloc] initWithProperty:propName
                                                         value:[abPerson valueForProperty:propName]
                                                         weighting:[[propertyWeighting objectForKey:propName] integerValue]]
