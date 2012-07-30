@@ -359,8 +359,7 @@ void absyncWriteAddressBook(NSString *filename)
       NSString *output = [[NSString alloc] initWithBytes:[data bytes]
                                            length:[data length]
                                            encoding:NSUTF8StringEncoding];
-      printf("%s", [output UTF8String]);
-      printf("\n");
+      printf("%s\n", [output UTF8String]);
     }
   else
     {
@@ -372,7 +371,7 @@ void absyncWriteAddressBook(NSString *filename)
                       error:&errorPtr];
       if (!success)
         {
-          printf("%s", [[NSString stringWithFormat:@"ERROR: could not write to file \"%@\"\n", filename] UTF8String]);
+          printf("%s\n", [[NSString stringWithFormat:@"ERROR: could not write to file \"%@\"", filename] UTF8String]);
         }
     }
   [abook release];
@@ -406,7 +405,7 @@ NSXMLDocument* absyncLoadXml(NSString *filename)
   NSURL *fileUrl = [NSURL fileURLWithPath:filename];
   if (!fileUrl)
     {
-      printf("%s", [[NSString stringWithFormat:@"ERROR: Can't create an URL from file %@", filename] UTF8String]);
+      printf("%s\n", [[NSString stringWithFormat:@"ERROR: Can't create an URL from file %@", filename] UTF8String]);
       return nil;
     }
   xmlDoc = [[NSXMLDocument alloc] initWithContentsOfURL:fileUrl
