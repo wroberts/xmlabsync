@@ -39,13 +39,16 @@ NSInteger absyncPersonSort(ABPerson *person1, ABPerson *person2, void *context)
   return [absyncPersonFullName(person1) compare:absyncPersonFullName(person2)];
 }
 
+static NSDateFormatter* CACHE_ABSYNCISODATEFORMATTER = nil;
 NSDateFormatter* absyncIsoDateFormatter()
 {
-  NSDateFormatter *dateFormat = [[NSDateFormatter alloc]
-                                  initWithDateFormat:@"%Y-%m-%d"
-                                  allowNaturalLanguage:NO];
-  [dateFormat autorelease];
-  return dateFormat;
+  if (!CACHE_ABSYNCISODATEFORMATTER)
+    {
+      CACHE_ABSYNCISODATEFORMATTER = [[NSDateFormatter alloc]
+                                       initWithDateFormat:@"%Y-%m-%d"
+                                       allowNaturalLanguage:NO];
+    }
+  return CACHE_ABSYNCISODATEFORMATTER;
 }
 
 @interface MultiStringItem : NSObject
@@ -98,43 +101,49 @@ NSDateFormatter* absyncIsoDateFormatter()
 }
 @end
 
+static NSArray* CACHE_ABSYNCABPERSONRELEVANTPROPERTIES = nil;
 NSArray* absyncAbPersonRelevantProperties()
 {
-  return [NSArray arrayWithObjects:
-                    kABTitleProperty,
-                  kABFirstNameProperty,
-                  kABFirstNamePhoneticProperty,
-                  kABMiddleNameProperty,
-                  kABMiddleNamePhoneticProperty,
-                  kABLastNameProperty,
-                  kABLastNamePhoneticProperty,
-                  kABSuffixProperty,
-                  kABNicknameProperty,
-                  kABMaidenNameProperty,
-                  kABJobTitleProperty,
-                  kABBirthdayProperty,
-                  //kABBirthdayComponentsProperty, //OS X 10.7+ only
-                  kABOrganizationProperty,
-                  //kABHomePageProperty, // deprecated OS X 10.4+
-                  kABURLsProperty,
-                  kABCalendarURIsProperty,
-                  kABEmailProperty,
-                  kABAddressProperty,
-                  kABOtherDatesProperty,
-                  //kABOtherDateComponentsProperty, //OS X 10.7+ only
-                  kABRelatedNamesProperty,
-                  kABDepartmentProperty,
-                  kABPersonFlags,
-                  kABPhoneProperty,
-                  //kABInstantMessageProperty, //OS X 10.7+ only
-                  kABAIMInstantProperty,
-                  kABJabberInstantProperty,
-                  kABMSNInstantProperty,
-                  kABYahooInstantProperty,
-                  kABICQInstantProperty,
-                  kABNoteProperty,
-                  //kABSocialProfileProperty, //OS X 10.7+ only
-                  nil];
+  if (!CACHE_ABSYNCABPERSONRELEVANTPROPERTIES)
+    {
+      CACHE_ABSYNCABPERSONRELEVANTPROPERTIES = [NSArray arrayWithObjects:
+                                                          kABTitleProperty,
+                                                        kABFirstNameProperty,
+                                                        kABFirstNamePhoneticProperty,
+                                                        kABMiddleNameProperty,
+                                                        kABMiddleNamePhoneticProperty,
+                                                        kABLastNameProperty,
+                                                        kABLastNamePhoneticProperty,
+                                                        kABSuffixProperty,
+                                                        kABNicknameProperty,
+                                                        kABMaidenNameProperty,
+                                                        kABJobTitleProperty,
+                                                        kABBirthdayProperty,
+                                                        //kABBirthdayComponentsProperty, //OS X 10.7+ only
+                                                        kABOrganizationProperty,
+                                                        //kABHomePageProperty, // deprecated OS X 10.4+
+                                                        kABURLsProperty,
+                                                        kABCalendarURIsProperty,
+                                                        kABEmailProperty,
+                                                        kABAddressProperty,
+                                                        kABOtherDatesProperty,
+                                                        //kABOtherDateComponentsProperty, //OS X 10.7+ only
+                                                        kABRelatedNamesProperty,
+                                                        kABDepartmentProperty,
+                                                        kABPersonFlags,
+                                                        kABPhoneProperty,
+                                                        //kABInstantMessageProperty, //OS X 10.7+ only
+                                                        kABAIMInstantProperty,
+                                                        kABJabberInstantProperty,
+                                                        kABMSNInstantProperty,
+                                                        kABYahooInstantProperty,
+                                                        kABICQInstantProperty,
+                                                        kABNoteProperty,
+                                                        //kABSocialProfileProperty, //OS X 10.7+ only
+                                                        nil];
+      [CACHE_ABSYNCABPERSONRELEVANTPROPERTIES retain];
+    }
+  return CACHE_ABSYNCABPERSONRELEVANTPROPERTIES;
 }
 
 NSXMLElement* absyncAbPersonBuildXml(ABPerson *person, BOOL isMe)
