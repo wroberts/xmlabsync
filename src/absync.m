@@ -34,9 +34,55 @@ NSString* absyncAbPersonFullName(ABPerson *person)
   return name;
 }
 
-NSInteger absyncPersonSort(ABPerson *person1, ABPerson *person2, void *context)
+NSString* absyncXmlPersonFullName(NSXMLElement *xmlPerson)
 {
-  return [absyncPersonFullName(person1) compare:absyncPersonFullName(person2)];
+  NSString *name = [NSString string];
+  NSArray *nodes = nil;
+  NSError *err = nil;
+  nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABPersonFlags]
+                     error:&err];
+  if (nodes &&
+      [nodes count] &&
+      ([[[nodes objectAtIndex:[nodes count]-1] stringValue] integerValue] & kABShowAsCompany))
+    {
+      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABOrganizationProperty]
+                              error:&err]) && [nodes count])
+        {
+          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+        }
+    }
+  else
+    {
+      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABLastNameProperty]
+                              error:&err]) && [nodes count])
+        {
+          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+          name = [name stringByAppendingString:@", "];
+        }
+      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABTitleProperty]
+                              error:&err]) && [nodes count])
+        {
+          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+          name = [name stringByAppendingString:@" "];
+        }
+      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABFirstNameProperty]
+                              error:&err]) && [nodes count])
+        {
+          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+        }
+      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABMiddleNameProperty]
+                              error:&err]) && [nodes count])
+        {
+          name = [name stringByAppendingString:@" "];
+          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+        }
+    }
+  return name;
+}
+
+NSInteger absyncAbPersonSort(ABPerson *person1, ABPerson *person2, void *context)
+{
+  return [absyncAbPersonFullName(person1) compare:absyncAbPersonFullName(person2)];
 }
 
 static NSDateFormatter* CACHE_ABSYNCISODATEFORMATTER = nil;
@@ -398,10 +444,159 @@ void absyncDeleteAddressBook()
   [abook release];
 }
 
+@interface PersonPropertyMatch : NSObject
+{
+  // Instance variable declarations
+  NSString *property;
+  NSString *value;
+  NSInteger weighting;
+}
+// Method and property declarations
+- (id)initWithProperty:(NSString*)n value:(NSString*)v weighting:(NSInteger)w;
+- (NSInteger)scoreAbPerson:(ABPerson*)abPerson;
+- (NSInteger)scoreXmlPerson:(NSXMLElement*)xmlPerson;
+@end
+
+@implementation PersonPropertyMatch
+- (id)initWithProperty:(NSString*)n
+                 value:(NSString*)v
+             weighting:(NSInteger)w
+{
+  self = [super init];
+  if (self) {
+    property = [n retain];
+    value = [v retain];
+    weighting = w;
+  }
+  return self;
+}
+- (void)dealloc
+{
+  [property release];
+  [value release];
+  [super dealloc];
+}
+- (NSInteger)scoreAbPerson:(ABPerson*)abPerson
+{
+  if ([[abPerson valueForProperty:property] isEqualToString:value])
+    return weighting;
+  else
+    return 0;
+}
+- (NSInteger)scoreXmlPerson:(NSXMLElement*)xmlPerson
+{
+  NSArray *nodes = nil;
+  NSError *err = nil;
+  nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", property]
+                     error:&err];
+  if (nodes && [nodes count] && [[[nodes objectAtIndex:[nodes count]-1] stringValue] isEqualToString:value])
+    return weighting;
+  else
+    return 0;
+}
+@end
+
+static NSDictionary *CACHE_ABSYNCPERSONPROPERTYWEIGHTING = nil;
+static const NSInteger PERSON_MATCHING_SCORE_THRESHOLD = 3;
+NSDictionary *absyncPersonPropertyWeighting()
+{
+  if (!CACHE_ABSYNCPERSONPROPERTYWEIGHTING)
+    {
+      CACHE_ABSYNCPERSONPROPERTYWEIGHTING = [NSDictionary dictionaryWithObjectsAndKeys:
+                                                            [NSNumber numberWithInteger:2], kABFirstNameProperty,
+                                                          [NSNumber numberWithInteger:1], kABMiddleNameProperty,
+                                                          [NSNumber numberWithInteger:3], kABLastNameProperty,
+                                                          [NSNumber numberWithInteger:4],  kABOrganizationProperty, nil];
+      [CACHE_ABSYNCPERSONPROPERTYWEIGHTING retain];
+    }
+  return CACHE_ABSYNCPERSONPROPERTYWEIGHTING;
+}
+
+ABPerson* absyncFindMatchingAbPerson(NSXMLElement *xmlPerson, ABAddressBook *abook)
+{
+  NSDictionary *propertyWeighting = absyncPersonPropertyWeighting();
+  NSMutableDictionary *props = [NSMutableDictionary dictionaryWithCapacity:0];
+  for (NSXMLElement *child in [xmlPerson children])
+    {
+      if ([propertyWeighting objectForKey:[child name]])
+        {
+          [props setObject:[[PersonPropertyMatch alloc] initWithProperty:[child name]
+                                                        value:[child stringValue]
+                                                        weighting:[[propertyWeighting objectForKey:[child name]] integerValue]]
+                 forKey:[child name]];
+        }
+    }
+
+  NSInteger bestScore = PERSON_MATCHING_SCORE_THRESHOLD;
+  ABPerson *bestCandidate = nil;
+  for (ABPerson *abPerson in [abook people])
+    {
+      NSInteger score = 0;
+      for (PersonPropertyMatch *properties in [props allValues])
+        {
+          score += [properties scoreAbPerson:abPerson];
+        }
+      if (bestScore < score)
+        {
+          bestScore = score;
+          bestCandidate = abPerson;
+        }
+    }
+
+  return bestCandidate;
+}
+
+NSXMLElement* absyncFindMatchingXmlPerson(ABPerson *abPerson, NSArray *xmlPeople)
+{
+  NSDictionary *propertyWeighting = absyncPersonPropertyWeighting();
+  NSMutableDictionary *props = [NSMutableDictionary dictionaryWithCapacity:0];
+  for (NSString *propName in [propertyWeighting allKeys])
+    {
+      if ([abPerson valueForProperty:propName])
+        {
+          [props setObject:[[PersonPropertyMatch alloc] initWithProperty:propName
+                                                        value:[abPerson valueForProperty:propName]
+                                                        weighting:[[propertyWeighting objectForKey:propName] integerValue]]
+                 forKey:propName];
+        }
+    }
+
+  NSInteger bestScore = PERSON_MATCHING_SCORE_THRESHOLD;
+  NSXMLElement *bestCandidate = nil;
+  for (NSXMLElement *xmlPerson in xmlPeople)
+    {
+      NSInteger score = 0;
+      for (PersonPropertyMatch *properties in [props allValues])
+        {
+          score += [properties scoreXmlPerson:xmlPerson];
+        }
+      if (bestScore < score)
+        {
+          bestScore = score;
+          bestCandidate = xmlPerson;
+        }
+    }
+
+  return bestCandidate;
+}
+
+ABGroup* absyncFindMatchingAbGroup(NSString *groupName, ABAddressBook *abook)
+{
+  for (ABGroup *group in [abook groups])
+    {
+      if ([[group valueForProperty:kABGroupNameProperty] isEqualToString:groupName])
+        {
+          return group;
+        }
+    }
+  return nil;
+}
+
 NSXMLDocument* absyncLoadXml(NSString *filename)
 {
   NSXMLDocument *xmlDoc = nil;
   NSError *err = nil;
+  // NYI: handle "-" for stdin
   NSURL *fileUrl = [NSURL fileURLWithPath:filename];
   if (!fileUrl)
     {
@@ -431,6 +626,358 @@ NSXMLDocument* absyncLoadXml(NSString *filename)
       return nil;
     }
   return xmlDoc;
+}
+
+// read all groups out of xml document
+NSSet* absyncGetXmlGroupSet(NSXMLDocument *xmldoc)
+{
+  // returns an arrays of NSXMLElement objects
+  NSError *err = nil;
+  NSArray *groups = [xmldoc nodesForXPath:@"//Group" error:&err];
+
+  // put groups into a MutableSet object
+  NSMutableSet *groupSet = [NSMutableSet setWithCapacity:0];
+  for (NSXMLElement *group in groups)
+    {
+      [groupSet addObject:[group stringValue]];
+    }
+  return groupSet;
+}
+
+// create new group
+void absyncCreateNewAbGroup(NSString *groupName, ABAddressBook *abook)
+{
+  ABGroup *group = [[ABGroup alloc] initWithAddressBook:abook];
+  [group setValue:groupName forProperty:kABGroupNameProperty];
+  [abook save];
+}
+
+// modifies the local address book groups to match the structure given
+// in the XML document
+void absyncInjectXmlGroups(NSXMLDocument *xmldoc, ABAddressBook *abook,
+                           BOOL update_flag, BOOL delete_flag)
+{
+  NSSet *groupSet = absyncGetXmlGroupSet(xmldoc);
+  for (NSString *groupName in groupSet)
+    {
+      if (!absyncFindMatchingAbGroup(groupName, abook))
+        {
+          // create new group
+          printf("%s\n", [[NSString stringWithFormat:@"Creating group %@", groupName] UTF8String]);
+          absyncCreateNewAbGroup(groupName, abook);
+        }
+    }
+  if (delete_flag)
+    {
+      // find all groups in address book
+      for (ABGroup *group in [abook groups])
+        {
+          // if group is not in xml document
+          if (![groupSet member:[group name]])
+            {
+              // delete it from the address book
+              printf("%s\n", [[NSString stringWithFormat:@"Deleting group %@", [group name]] UTF8String]);
+              // NOTE: we do not have to remove people from a group
+              // before deleting it
+              [abook removeRecord:group];
+              [abook save];
+            }
+        }
+    }
+}
+
+// find all person records in the given XML document
+NSArray* absyncGetXmlPeople(NSXMLDocument *xmldoc)
+{
+  NSError *err = nil;
+  return [xmldoc nodesForXPath:@"/AddressBook/Person" error:&err];
+}
+
+// test whether there is an entry in multiValue2 which matches the
+// entry in multiValue1 at idx.
+BOOL absyncMultiValueMatch(ABMultiValue *multiValue1, NSInteger idx, ABMultiValue *multiValue2)
+{
+  int idx2 = 0;
+  for (; idx2 < [multiValue2 count]; idx2++)
+    {
+      if ([[multiValue1 labelAtIndex:idx] isEqual:[multiValue2 labelAtIndex:idx2]] &&
+          [[multiValue1 valueAtIndex:idx] isEqual:[multiValue2 valueAtIndex:idx2]])
+        {
+          return YES;
+        }
+    }
+  return NO;
+}
+
+ABMutableMultiValue* absyncMakeMutableCopyOfMultiValue(ABMultiValue *multivalue)
+{
+  ABMutableMultiValue *copy = [[ABMutableMultiValue alloc] init];
+  if (multivalue)
+    {
+      int idx = 0;
+      for (; idx < [multivalue count]; idx++)
+        {
+          [copy insertValue:[multivalue valueAtIndex:idx]
+                withLabel:[multivalue labelAtIndex:idx]
+                atIndex:idx];
+        }
+    }
+  [copy autorelease];
+  return copy;
+}
+
+NSSet* absyncGetXmlGroups(NSXMLElement *xmlPerson)
+{
+  NSError *err = nil;
+  NSMutableSet *retVal = [NSMutableSet setWithCapacity:0];
+  for (NSXMLElement *xmlGroup in [xmlPerson nodesForXPath:@"./Groups/Group/text()" error:&err])
+    {
+      [retVal addObject:[xmlGroup stringValue]];
+    }
+  return retVal;
+}
+
+void absyncInjectXmlPerson(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddressBook *abook, BOOL update_flag, BOOL delete_flag)
+{
+  // inject groups
+  NSSet *xmlGroups = absyncGetXmlGroups(xmlPerson);
+  for (NSString *groupName in xmlGroups)
+    {
+      ABGroup *group = absyncFindMatchingAbGroup(groupName, abook);
+      if (group)
+        {
+          [group addMember:abPerson];
+          //[abook save];
+        }
+    }
+  if (delete_flag)
+    {
+      for (ABGroup *group in [abPerson parentGroups])
+        {
+          if (![xmlGroups member:[group valueForProperty:kABGroupNameProperty]])
+            {
+              [group removeMember:abPerson];
+              [abook save];
+            }
+        }
+    }
+  // inject properties
+  NSArray *relevantProperties = absyncAbPersonRelevantProperties();
+  NSMutableArray *properties = [NSMutableArray arrayWithCapacity:0];
+  for (NSXMLElement *child in [xmlPerson children])
+    {
+      if ([relevantProperties containsObject:[child name]])
+        {
+          [properties addObject:child];
+        }
+    }
+  // set relevant properties
+  for (NSXMLElement *prop in properties)
+    {
+      NSString *propName = [prop name];
+      NSString *propType = [[prop attributeForName:@"type"] stringValue];
+      ABMutableMultiValue *multiValue = nil;
+      NSString *multiType = nil;
+      if ([propType isEqualToString:@"string"])
+        {
+          [abPerson setValue:[prop stringValue] forProperty:propName];
+        }
+      else if ([propType isEqualToString:@"date"])
+        {
+          [abPerson setValue:[absyncIsoDateFormatter() dateFromString:[prop stringValue]] forProperty:propName];
+        }
+      else if ([propType isEqualToString:@"number"])
+        {
+          [abPerson setValue:[NSNumber numberWithInteger:[[prop stringValue] integerValue]] forProperty:propName];
+        }
+      else if ([propType isEqualToString:@"multistring"] || [propType isEqualToString:@"multidict"] || [propType isEqualToString:@"multidate"])
+        {
+          multiType = propType;
+          multiValue = [[ABMutableMultiValue alloc] init];
+          for (NSXMLElement *child in [prop children])
+            {
+              if (![[child name] isEqualToString:@"item"] ||
+                  [[child children] count] != 2 ||
+                  ![[[[child children] objectAtIndex:0] name] isEqualToString:@"key"] ||
+                  ![[[[child children] objectAtIndex:1] name] isEqualToString:@"value"])
+                {
+                  continue;
+                }
+              [multiValue addValue:[[[child children] objectAtIndex:1] XMLString]
+                          withLabel:[[[child children] objectAtIndex:0] stringValue]];
+            }
+        }
+      if (!multiValue)
+        {
+          continue;
+        }
+      // convert multiValue to have values of the right type
+      // NOTE: contrary to the Apple Docs, there does not seem to be a
+      // problem with a ABMutableMultiValue having values of different
+      // types
+      if ([multiType isEqualToString:@"multistring"])
+        {
+          int idx = 0;
+          for (; idx < [multiValue count]; idx++)
+            {
+              NSError *err = nil;
+              NSXMLElement *value = [[NSXMLElement alloc] initWithXMLString:[multiValue valueAtIndex:idx] error:&err];
+              [multiValue replaceValueAtIndex:idx withValue:[value stringValue]];
+              [value release];
+            }
+        }
+      else if ([multiType isEqualToString:@"multidict"])
+        {
+          // iterate backwards
+          int idx = [multiValue count] - 1;
+          for (; 0 <= idx; idx--)
+            {
+              NSError *err = nil;
+              NSXMLElement *value = [[NSXMLElement alloc] initWithXMLString:[multiValue valueAtIndex:idx] error:&err];
+              if ([[value children] count] != 1 ||
+                  ![[[[value children] objectAtIndex:0] name] isEqualToString:@"Dict"])
+                {
+                  [multiValue removeValueAndLabelAtIndex:idx];
+                  continue;
+                }
+              NSMutableDictionary *nsdict = [NSMutableDictionary dictionaryWithCapacity:0];
+              for (NSXMLElement *dictitem in [[[value children] objectAtIndex:0] children])
+                {
+                  if (![[dictitem name] isEqualToString:@"DictItem"] ||
+                      [[dictitem children] count] != 2 ||
+                      ![[[[dictitem children] objectAtIndex:0] name] isEqualToString:@"key"] ||
+                      ![[[[dictitem children] objectAtIndex:1] name] isEqualToString:@"value"])
+                    {
+                      continue;
+                    }
+                  [nsdict setObject:[[[dictitem children] objectAtIndex:1] stringValue]
+                          forKey:[[[dictitem children] objectAtIndex:0] stringValue]];
+                }
+              [multiValue replaceValueAtIndex:idx withValue:nsdict];
+              [value release];
+            }
+        }
+      else if ([multiType isEqualToString:@"multidate"])
+        {
+          int idx = 0;
+          for (; idx < [multiValue count]; idx++)
+            {
+              NSError *err = nil;
+              NSXMLElement *value = [[NSXMLElement alloc] initWithXMLString:[multiValue valueAtIndex:idx] error:&err];
+              [multiValue replaceValueAtIndex:idx withValue:[absyncIsoDateFormatter() dateFromString:[value stringValue]]];
+              [value release];
+            }
+        }
+      // now do something with the multivalue
+      ABMutableMultiValue *abPersonMV = absyncMakeMutableCopyOfMultiValue([abPerson valueForProperty:propName]);
+      int idx = 0;
+      for (; idx < [multiValue count]; idx++)
+        {
+          if (!absyncMultiValueMatch(multiValue, idx, abPersonMV))
+            {
+              // add the multivalue
+              [abPersonMV addValue:[multiValue valueAtIndex:idx]
+                          withLabel:[multiValue labelAtIndex:idx]];
+            }
+        }
+      // iterate backwards
+      for (int idx = [abPersonMV count] - 1; 0 <= idx; idx--)
+        {
+          if (!absyncMultiValueMatch(abPersonMV, idx, multiValue))
+            {
+              // remove the multivalue
+              [abPersonMV removeValueAndLabelAtIndex:idx];
+            }
+        }
+      // NYI: store identifiers (UUIDs), primaryIdentifier?
+    }
+  // remove irrelevant properties
+  if (delete_flag)
+    {
+      NSMutableSet *xmlPropertySet = [NSMutableSet setWithCapacity:0];
+      for (NSXMLElement *prop in properties)
+        {
+          [xmlPropertySet addObject:[prop name]];
+        }
+      for (NSString *propName in relevantProperties)
+        {
+          if ([abPerson valueForProperty:propName] && ![xmlPropertySet member:propName])
+            {
+              [abPerson removeValueForProperty:propName];
+            }
+        }
+    }
+}
+
+void absyncInjectXmlPeople(NSXMLDocument *xmldoc, ABAddressBook *abook, BOOL update_flag, BOOL delete_flag)
+{
+  NSArray *xmlPeople = absyncGetXmlPeople(xmldoc);
+  // for each person in the XML document
+  for (NSXMLElement *xmlPerson in xmlPeople)
+    {
+      ABPerson *abPerson = absyncFindMatchingAbPerson(xmlPerson, abook);
+      // if the person is found
+      if (abPerson)
+        {
+          if (update_flag)
+            {
+              // update the person
+              printf("%s\n", [[NSString stringWithFormat:@"Updating person %@ with %@", absyncAbPersonFullName(abPerson),
+                                      absyncXmlPersonFullName(xmlPerson)] UTF8String]);
+            }
+          else
+            {
+              // don't update the person
+              abPerson = nil;
+            }
+        }
+      else
+        {
+          // create a new person entry
+          printf("%s\n", [[NSString stringWithFormat:@"Creating person %@", absyncXmlPersonFullName(xmlPerson)] UTF8String]);
+          abPerson = [[ABPerson alloc] initWithAddressBook:abook];
+        }
+      if (abPerson)
+        {
+          // inject person properties into the person entry
+          absyncInjectXmlPerson(xmlPerson, abPerson, abook, update_flag, delete_flag);
+          [abook save];
+        }
+    }
+  if (delete_flag)
+    {
+      // for person in address book
+      for (ABPerson *abPerson in [abook people])
+        {
+          // if the person is not found in the XML doc
+          if (!absyncFindMatchingXmlPerson(abPerson, xmlPeople))
+            {
+              // delete the person
+              printf("%s\n", [[NSString stringWithFormat:@"Deleting person %@", absyncAbPersonFullName(abPerson)] UTF8String]);
+              [abook removeRecord:abPerson];
+              [abook save];
+            }
+        }
+    }
+}
+
+void absyncReadAddressBook(NSString *filename, BOOL update_flag, BOOL delete_flag)
+{
+  ABAddressBook *abook = absyncGetAddressBook();
+  NSXMLDocument *xmlDoc = absyncLoadXml(filename);
+  if (!xmlDoc)
+    {
+      printf("ERROR: Could not load address book XML data\n");
+      [abook release];
+      return;
+    }
+  // synchronize group information
+  absyncInjectXmlGroups(xmlDoc, abook, update_flag, delete_flag);
+  // synchronize person information
+  absyncInjectXmlPeople(xmlDoc, abook, update_flag, delete_flag);
+
+  [xmlDoc release];
+  [abook release];
 }
 
 enum {
@@ -551,17 +1098,14 @@ int main (int argc, const char * argv[])
   switch (mode)
     {
     case RUN_MODE_READ:
-      printf("ERROR: Function read not yet implemented\n");
-      [pool release];
-      exit(1);
+      absyncReadAddressBook(filename, update_flag, delete_flag);
       break;
     case RUN_MODE_WRITE:
       absyncWriteAddressBook(filename);
       break;
     case RUN_MODE_REPLACE:
-      printf("ERROR: Function replace not yet implemented\n");
-      [pool release];
-      exit(1);
+      absyncDeleteAddressBook();
+      absyncReadAddressBook(filename, update_flag, delete_flag);
       break;
     case RUN_MODE_DELETE:
       absyncDeleteAddressBook();
