@@ -5,7 +5,7 @@
 NSString* absyncAbPersonFullName(ABPerson *person)
 {
   NSString *name = [NSString string];
-  if ([[person valueForProperty:kABPersonFlags] intValue] & kABShowAsCompany)
+  if ([[person valueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
     {
       name = [name stringByAppendingString:[person valueForProperty:kABOrganizationProperty]];
     }
