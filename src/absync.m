@@ -497,18 +497,27 @@ void absyncDeleteAddressBook()
 }
 - (NSInteger)scoreAbPerson:(ABPerson*)abPerson
 {
-  if ([[abPerson valueForProperty:property] isEqualToString:value])
+  NSString *abPersonValue = [NSString string];
+  if ([abPerson valueForProperty:property])
+	{
+	  abPersonValue = [abPerson valueForProperty:property];
+	}
+  if ([abPersonValue isEqualToString:value])
     return weighting;
   else
     return 0;
 }
 - (NSInteger)scoreXmlPerson:(NSXMLElement*)xmlPerson
 {
+  NSString *xmlPersonValue = [NSString string];
   NSArray *nodes = nil;
   NSError *err = nil;
-  nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", property]
-                     error:&err];
-  if (nodes && [nodes count] && [[[nodes objectAtIndex:[nodes count]-1] stringValue] isEqualToString:value])
+  nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", property] error:&err];
+  if (nodes && [nodes count])
+	{
+	  xmlPersonValue = [[nodes objectAtIndex:[nodes count]-1] stringValue];
+	}
+  if ([xmlPersonValue isEqualToString:value])
     return weighting;
   else
     return 0;
@@ -535,18 +544,23 @@ ABPerson* absyncFindMatchingAbPerson(NSXMLElement *xmlPerson, ABAddressBook *abo
 {
   NSDictionary *propertyWeighting = absyncPersonPropertyWeighting();
   NSMutableDictionary *props = [NSMutableDictionary dictionaryWithCapacity:0];
-  for (NSXMLElement *child in [xmlPerson children])
+
+  for (NSString *propName in [propertyWeighting allKeys])
     {
-      if ([propertyWeighting objectForKey:[child name]])
-        {
-		  if ([[child name] isEqualToString:kABOrganizationProperty] && !absyncXmlPersonIsCompany(xmlPerson))
-			continue;
-          [props setObject:[[PersonPropertyMatch alloc] initWithProperty:[child name]
-                                                        value:[child stringValue]
-                                                        weighting:[[propertyWeighting objectForKey:[child name]] integerValue]]
-                 forKey:[child name]];
-        }
-    }
+	  if ([propName isEqualToString:kABOrganizationProperty] && !absyncXmlPersonIsCompany(xmlPerson))
+		continue;
+	  NSString *propValue = [NSString string];
+	  NSError *err = nil;
+	  NSArray *nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", propName] error:&err];
+	  if (nodes && [nodes count])
+		{
+		  propValue = [[nodes objectAtIndex:[nodes count]-1] stringValue];
+		}
+	  [props setObject:[[PersonPropertyMatch alloc] initWithProperty:propName
+													value:propValue
+													weighting:[[propertyWeighting objectForKey:propName] integerValue]]
+			 forKey:propName];
+	}
 
   NSInteger bestScore = PERSON_MATCHING_SCORE_THRESHOLD;
   ABPerson *bestCandidate = nil;
@@ -573,15 +587,17 @@ NSXMLElement* absyncFindMatchingXmlPerson(ABPerson *abPerson, NSArray *xmlPeople
   NSMutableDictionary *props = [NSMutableDictionary dictionaryWithCapacity:0];
   for (NSString *propName in [propertyWeighting allKeys])
     {
+	  if ([propName isEqualToString:kABOrganizationProperty] && !absyncAbPersonIsCompany(abPerson))
+		continue;
+	  NSString *propValue = [NSString string];
       if ([abPerson valueForProperty:propName])
         {
-		  if ([propName isEqualToString:kABOrganizationProperty] && !absyncAbPersonIsCompany(abPerson))
-			continue;
-          [props setObject:[[PersonPropertyMatch alloc] initWithProperty:propName
-                                                        value:[abPerson valueForProperty:propName]
-                                                        weighting:[[propertyWeighting objectForKey:propName] integerValue]]
-                 forKey:propName];
+		  propValue = [abPerson valueForProperty:propName];
         }
+	  [props setObject:[[PersonPropertyMatch alloc] initWithProperty:propName
+													value:propValue
+													weighting:[[propertyWeighting objectForKey:propName] integerValue]]
+			 forKey:propName];
     }
 
   NSInteger bestScore = PERSON_MATCHING_SCORE_THRESHOLD;
