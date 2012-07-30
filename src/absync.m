@@ -544,10 +544,10 @@ ABPerson* absyncFindMatchingAbPerson(NSXMLElement *xmlPerson, ABAddressBook *abo
 {
   NSDictionary *propertyWeighting = absyncPersonPropertyWeighting();
   NSMutableDictionary *props = [NSMutableDictionary dictionaryWithCapacity:0];
-
+  BOOL xmlPersonIsCompany = absyncXmlPersonIsCompany(xmlPerson);
   for (NSString *propName in [propertyWeighting allKeys])
     {
-	  if ([propName isEqualToString:kABOrganizationProperty] && !absyncXmlPersonIsCompany(xmlPerson))
+	  if ([propName isEqualToString:kABOrganizationProperty] && !xmlPersonIsCompany)
 		continue;
 	  NSString *propValue = [NSString string];
 	  NSError *err = nil;
@@ -566,6 +566,8 @@ ABPerson* absyncFindMatchingAbPerson(NSXMLElement *xmlPerson, ABAddressBook *abo
   ABPerson *bestCandidate = nil;
   for (ABPerson *abPerson in [abook people])
     {
+	  if (xmlPersonIsCompany != absyncAbPersonIsCompany(abPerson))
+		continue;
       NSInteger score = 0;
       for (PersonPropertyMatch *properties in [props allValues])
         {
@@ -585,9 +587,10 @@ NSXMLElement* absyncFindMatchingXmlPerson(ABPerson *abPerson, NSArray *xmlPeople
 {
   NSDictionary *propertyWeighting = absyncPersonPropertyWeighting();
   NSMutableDictionary *props = [NSMutableDictionary dictionaryWithCapacity:0];
+  BOOL abPersonIsCompany = absyncAbPersonIsCompany(abPerson);
   for (NSString *propName in [propertyWeighting allKeys])
     {
-	  if ([propName isEqualToString:kABOrganizationProperty] && !absyncAbPersonIsCompany(abPerson))
+	  if ([propName isEqualToString:kABOrganizationProperty] && !abPersonIsCompany)
 		continue;
 	  NSString *propValue = [NSString string];
       if ([abPerson valueForProperty:propName])
@@ -604,6 +607,8 @@ NSXMLElement* absyncFindMatchingXmlPerson(ABPerson *abPerson, NSArray *xmlPeople
   NSXMLElement *bestCandidate = nil;
   for (NSXMLElement *xmlPerson in xmlPeople)
     {
+	  if (abPersonIsCompany != absyncXmlPersonIsCompany(xmlPerson))
+		continue;
       NSInteger score = 0;
       for (PersonPropertyMatch *properties in [props allValues])
         {
