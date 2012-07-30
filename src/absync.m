@@ -525,7 +525,7 @@ void absyncDeleteAddressBook()
 @end
 
 static NSDictionary *CACHE_ABSYNCPERSONPROPERTYWEIGHTING = nil;
-static const NSInteger PERSON_MATCHING_SCORE_THRESHOLD = 3;
+static const NSInteger PERSON_MATCHING_SCORE_THRESHOLD = 4;
 NSDictionary *absyncPersonPropertyWeighting()
 {
   if (!CACHE_ABSYNCPERSONPROPERTYWEIGHTING)
@@ -534,7 +534,7 @@ NSDictionary *absyncPersonPropertyWeighting()
                                                             [NSNumber numberWithInteger:2], kABFirstNameProperty,
                                                           [NSNumber numberWithInteger:1], kABMiddleNameProperty,
                                                           [NSNumber numberWithInteger:3], kABLastNameProperty,
-                                                          [NSNumber numberWithInteger:4],  kABOrganizationProperty, nil];
+                                                          [NSNumber numberWithInteger:5],  kABOrganizationProperty, nil];
       [CACHE_ABSYNCPERSONPROPERTYWEIGHTING retain];
     }
   return CACHE_ABSYNCPERSONPROPERTYWEIGHTING;
