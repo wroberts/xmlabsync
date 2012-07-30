@@ -2,10 +2,29 @@
 #import <AddressBook/AddressBook.h>
 #include <getopt.h>
 
+BOOL absyncAbPersonIsCompany(ABPerson *person)
+{
+  if ([[person valueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
+	return YES;
+  return NO;
+}
+
+BOOL absyncXmlPersonIsCompany(NSXMLElement *xmlPerson)
+{
+  NSError *err = nil;
+  NSArray *nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABPersonFlags]
+							  error:&err];
+  if (nodes &&
+      [nodes count] &&
+      ([[[nodes objectAtIndex:[nodes count]-1] stringValue] integerValue] & kABShowAsCompany))
+	return YES;
+  return NO;
+}
+
 NSString* absyncAbPersonFullName(ABPerson *person)
 {
   NSString *name = [NSString string];
-  if ([[person valueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
+  if (absyncAbPersonIsCompany(person))
     {
       name = [name stringByAppendingString:[person valueForProperty:kABOrganizationProperty]];
     }
@@ -39,11 +58,7 @@ NSString* absyncXmlPersonFullName(NSXMLElement *xmlPerson)
   NSString *name = [NSString string];
   NSArray *nodes = nil;
   NSError *err = nil;
-  nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABPersonFlags]
-                     error:&err];
-  if (nodes &&
-      [nodes count] &&
-      ([[[nodes objectAtIndex:[nodes count]-1] stringValue] integerValue] & kABShowAsCompany))
+  if (absyncXmlPersonIsCompany(xmlPerson))
     {
       if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABOrganizationProperty]
                               error:&err]) && [nodes count])
@@ -927,7 +942,7 @@ void absyncInjectXmlPeople(NSXMLDocument *xmldoc, ABAddressBook *abook, BOOL upd
             {
               // update the person
               printf("%s\n", [[NSString stringWithFormat:@"Updating person %@ with %@", absyncAbPersonFullName(abPerson),
-                                      absyncXmlPersonFullName(xmlPerson)] UTF8String]);
+                                        absyncXmlPersonFullName(xmlPerson)] UTF8String]);
             }
           else
             {
