@@ -205,7 +205,7 @@ NSXMLElement* absyncAbPersonBuildXml(ABPerson *person, BOOL isMe)
               [sortedKeys sortUsingSelector:@selector(compare:)];
 
               // multistring
-              if ([value propertyType] == kABMultiStringProperty /*kABStringProperty*/)
+              if ([value propertyType] == kABMultiStringProperty)
                 {
                   NSXMLElement *xmlValue = (NSXMLElement*)[NSXMLNode elementWithName:property
                                                                      children:nil
@@ -225,7 +225,7 @@ NSXMLElement* absyncAbPersonBuildXml(ABPerson *person, BOOL isMe)
                     }
                 }
               // multidate
-              else if ([value propertyType] == kABMultiDateProperty /*kABDateProperty*/)
+              else if ([value propertyType] == kABMultiDateProperty)
                 {
                   NSXMLElement *xmlValue = (NSXMLElement*)[NSXMLNode elementWithName:property
                                                                      children:nil
@@ -246,7 +246,7 @@ NSXMLElement* absyncAbPersonBuildXml(ABPerson *person, BOOL isMe)
                     }
                 }
               // multidictionary
-              else if ([value propertyType] == kABMultiDictionaryProperty /*kABDictionaryProperty*/)
+              else if ([value propertyType] == kABMultiDictionaryProperty)
                 {
                   NSXMLElement *xmlValue = (NSXMLElement*)[NSXMLNode elementWithName:property
                                                                      children:nil
