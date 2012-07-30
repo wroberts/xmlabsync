@@ -762,28 +762,6 @@ NSSet* absyncGetXmlGroups(NSXMLElement *xmlPerson)
 
 void absyncInjectXmlPerson(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddressBook *abook, BOOL update_flag, BOOL delete_flag)
 {
-  // inject groups
-  NSSet *xmlGroups = absyncGetXmlGroups(xmlPerson);
-  for (NSString *groupName in xmlGroups)
-    {
-      ABGroup *group = absyncFindMatchingAbGroup(groupName, abook);
-      if (group)
-        {
-          [group addMember:abPerson];
-          //[abook save];
-        }
-    }
-  if (delete_flag)
-    {
-      for (ABGroup *group in [abPerson parentGroups])
-        {
-          if (![xmlGroups member:[group valueForProperty:kABGroupNameProperty]])
-            {
-              [group removeMember:abPerson];
-              [abook save];
-            }
-        }
-    }
   // inject properties
   NSArray *relevantProperties = absyncAbPersonRelevantProperties();
   NSMutableArray *properties = [NSMutableArray arrayWithCapacity:0];
@@ -932,6 +910,32 @@ void absyncInjectXmlPerson(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddres
     }
 }
 
+void absyncInjectXmlPersonGroups(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddressBook *abook, BOOL update_flag, BOOL delete_flag)
+{
+  // inject groups
+  NSSet *xmlGroups = absyncGetXmlGroups(xmlPerson);
+  for (NSString *groupName in xmlGroups)
+    {
+      ABGroup *group = absyncFindMatchingAbGroup(groupName, abook);
+      if (group)
+        {
+          [group addMember:abPerson];
+          //[abook save];
+        }
+    }
+  if (delete_flag)
+    {
+      for (ABGroup *group in [abPerson parentGroups])
+        {
+          if (![xmlGroups member:[group valueForProperty:kABGroupNameProperty]])
+            {
+              [group removeMember:abPerson];
+              [abook save];
+            }
+        }
+    }
+}
+
 void absyncInjectXmlPeople(NSXMLDocument *xmldoc, ABAddressBook *abook, BOOL update_flag, BOOL delete_flag)
 {
   NSArray *xmlPeople = absyncGetXmlPeople(xmldoc);
@@ -964,6 +968,9 @@ void absyncInjectXmlPeople(NSXMLDocument *xmldoc, ABAddressBook *abook, BOOL upd
         {
           // inject person properties into the person entry
           absyncInjectXmlPerson(xmlPerson, abPerson, abook, update_flag, delete_flag);
+          [abook save];
+          // inject person groups into the person entry
+          absyncInjectXmlPersonGroups(xmlPerson, abPerson, abook, update_flag, delete_flag);
           [abook save];
         }
     }
