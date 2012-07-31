@@ -1068,6 +1068,35 @@ void absyncInjectXmlPeople(NSXMLDocument *xmldoc,
             }
         }
     }
+  // update the IsMe property
+  NSError *err = nil;
+  NSArray *nodes = [xmldoc nodesForXPath:@"/AddressBook/Person[IsMe=1]" error:&err];
+  if (nodes && [nodes count])
+    {
+      NSXMLElement *xmlMe = [nodes objectAtIndex:[nodes count]-1];
+      ABPerson *abMe = absyncFindMatchingAbPerson(xmlMe, abook);
+      if (!abMe)
+        {
+          printf("%s\n", [[NSString stringWithFormat:@"WARNING: could not find matching record for person %@",
+                                    absyncXmlPersonFullName(xmlMe)] UTF8String]);
+          return;
+        }
+      if ([abook me] != abMe && (update_flag || ![abook me]))
+        {
+          printf("%s\n", [[NSString stringWithFormat:@"Setting person %@ to Me", absyncAbPersonFullName(abMe)] UTF8String]);
+          [abook setMe:abMe];
+          [abook save];
+        }
+    }
+  else
+    {
+      if ([abook me] && delete_flag)
+        {
+          printf("%s\n", [@"Setting Me to None" UTF8String]);
+          [abook setMe:nil];
+          [abook save];
+        }
+    }
 }
 
 void absyncReadAddressBook(NSString *filename, BOOL update_flag, BOOL delete_flag)
