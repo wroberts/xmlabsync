@@ -1018,10 +1018,7 @@ void absyncInjectXmlPeople(NSXMLDocument *xmldoc,
       // if the person is found
       if (abPerson)
         {
-          if (update_flag)
-            {
-            }
-          else
+          if (!update_flag)
             {
               // don't update the person
               abPerson = nil;
