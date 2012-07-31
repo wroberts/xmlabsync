@@ -9,22 +9,16 @@ project (${PROCESS_NAME})
 set (${PROCESS_NAME}_VERSION_MAJOR 1)
 set (${PROCESS_NAME}_VERSION_MINOR 0)
 
-# configure a header file to pass some of the CMake settings
-# to the source code
-# configure_file (
-#   "${PROJECT_SOURCE_DIR}/${PROCESS_NAME}Config.h.in"
-#   "${PROJECT_BINARY_DIR}/${PROCESS_NAME}Config.h"
-#   )
-#
-# # add the binary tree to the search path for include files
-# # so that we will find ${PROCESS_NAME}Config.h
-# include_directories("${PROJECT_BINARY_DIR}")
-#
-# # then include something like this in ${PROCESS_NAME}Config.h.in:
-#
-# // the configured options and settings for Tutorial
-# #define Tutorial_VERSION_MAJOR @Tutorial_VERSION_MAJOR@
-# #define Tutorial_VERSION_MINOR @Tutorial_VERSION_MINOR@
+# Configure a header file to pass some of the CMake settings to the
+# source code
+configure_file (
+  "${PROJECT_SOURCE_DIR}/${PROCESS_NAME}config.h.in"
+  "${PROJECT_BINARY_DIR}/${PROCESS_NAME}config.h"
+  )
+
+# Add the binary tree to the search path for include files so that we
+# will find ${PROCESS_NAME}config.h
+include_directories("${PROJECT_BINARY_DIR}")
 
 set(PROCESS_SRCS
   absync.m

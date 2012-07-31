@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <AddressBook/AddressBook.h>
 #include <getopt.h>
+#include "absyncconfig.h"
 
 BOOL absyncAbPersonIsCompany(ABPerson *person)
 {
