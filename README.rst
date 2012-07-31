@@ -2,17 +2,90 @@
  absync - Mac OS X Address Book Synchronization
 ================================================
 
+.. include:: <isonum.txt>
+|copy| Copyright 2012 Will Roberts <wildwilhelm@gmail.com>.
+
+Licensed under the MIT License (see source file ``absync.m`` for
+details).
+
+Synchronizes the Mac OS X Address Book to and from an XML-based
+format.
+
+This program is intended to help with synchronizing the system Address
+Book between computers, and with tracking changes to the Address Book
+by storing its contents in a version control system (I use Git_).
+
+The process would look roughly like this::
+
+    # export the system Address Book to XML
+    absync -w abook.xml
+    git commit -m "Autocommit Address Book" abook.xml
+    git fetch
+    # merge local abook.xml with remote abook.xml
+    git merge origin/upsteam
+    git push
+    # integrate updated information from the XML to the system Address Book
+    absync -r abook.xml
+
+.. _Git: http://git-scm.com/
+
+Syntax
+======
+
+::
+
+    absync Version 1.0
+    Mac OS X Adddress Book Synchronization
+    (c) 2012 Will Roberts
+
+    This is a utility to export the Mac OS X Adddress Book as an XML file,
+    or to read an XML file in, modifying the Address Book.
+
+    Syntax:
+
+       absync -w OUTFILE.XML
+       absync [--no-update] [--no-delete] -r INFILE.XML
+       absync --replace INFILE.XML
+       absync --delete
+
+    absync -w dumps the Address Book to the named file (or standard output
+    if filename is "-").
+
+    absync -r reads an XML file (or standard input if filename is "-"),
+    creating, modifying, and deleting entries in the Address Book to
+    mirror the data read.  If --no-update is specified, the tool will not
+    modify any existing entries.  If --no-delete is specified, the tool
+    will not delete any existing entries.
+
+    absync --replace deletes the local address book and replaces its
+    contents with the entries loaded from the given XML file.  USE WITH
+    CAUTION.
+
+    absync --delete deletes the local address book.  USE WITH CAUTION.
+
+Known Issues
+============
+
+* Does not currently import/export image data for person records.
+* absync could try harder to preserve UUID information when
+  ``replace``-ing the Address Book.  My thinking is that the average
+  user won't ``replace`` their Address Book all that often, so this is
+  OK.
+* ``absync --replace`` with big address books makes AddressBookSync
+  unhappy, and it can sometimes take a few tries to get the Address
+  Book to import completely.
+
 Requirements
 ============
 
-* Mac OS X 10.4 or later
-* CMake 2.6 or later
+* Mac OS X 10.4 or later.
+* CMake 2.6 or later.
 
 Building
 ========
 
 1. Check out the source from GitHub::
-   
+
     git checkout git://github.com/wroberts/absync.git
 
 2. Build
