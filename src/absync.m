@@ -790,8 +790,13 @@ NSSet* absyncGetXmlGroups(NSXMLElement *xmlPerson)
   return retVal;
 }
 
-void absyncInjectXmlPerson(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddressBook *abook, BOOL update_flag, BOOL delete_flag)
+BOOL absyncInjectXmlPerson(NSXMLElement  *xmlPerson,
+                           ABPerson      *abPerson,
+                           ABAddressBook *abook,
+                           BOOL           update_flag,
+                           BOOL           delete_flag)
 {
+  BOOL changedRecord = NO;
   // inject properties
   NSArray *relevantProperties = absyncAbPersonRelevantProperties();
   NSMutableArray *properties = [NSMutableArray arrayWithCapacity:0];
@@ -811,17 +816,37 @@ void absyncInjectXmlPerson(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddres
       NSString *multiType = nil;
       if ([propType isEqualToString:@"string"])
         {
-          [abPerson setValue:[prop stringValue] forProperty:propName];
+          NSString *propValue = [prop stringValue];
+          if (![[abPerson valueForProperty:propName] isEqual:propValue])
+            {
+              [abPerson setValue:propValue forProperty:propName];
+              changedRecord = YES;
+            }
         }
       else if ([propType isEqualToString:@"date"])
         {
-          [abPerson setValue:[absyncIsoDateFormatter() dateFromString:[prop stringValue]] forProperty:propName];
+          NSDate *propValue = [absyncIsoDateFormatter() dateFromString:[prop stringValue]];
+          // compare dates: two dates are equal if they represent the
+          // same day (NSDate also has time information, which we
+          // don't need for things like birthdays, etc.)
+          if (![[absyncIsoDateFormatter() stringFromDate:[abPerson valueForProperty:propName]] isEqual:[prop stringValue]])
+            {
+              [abPerson setValue:propValue forProperty:propName];
+              changedRecord = YES;
+            }
         }
       else if ([propType isEqualToString:@"number"])
         {
-          [abPerson setValue:[NSNumber numberWithInteger:[[prop stringValue] integerValue]] forProperty:propName];
+          NSNumber *propValue = [NSNumber numberWithInteger:[[prop stringValue] integerValue]];
+          if (![[abPerson valueForProperty:propName] isEqual:propValue])
+            {
+              [abPerson setValue:propValue forProperty:propName];
+              changedRecord = YES;
+            }
         }
-      else if ([propType isEqualToString:@"multistring"] || [propType isEqualToString:@"multidict"] || [propType isEqualToString:@"multidate"])
+      else if ([propType isEqualToString:@"multistring"] ||
+               [propType isEqualToString:@"multidict"] ||
+               [propType isEqualToString:@"multidate"])
         {
           multiType = propType;
           multiValue = [[ABMutableMultiValue alloc] init];
@@ -909,6 +934,7 @@ void absyncInjectXmlPerson(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddres
               // add the multivalue
               [abPersonMV addValue:[multiValue valueAtIndex:idx]
                           withLabel:[multiValue labelAtIndex:idx]];
+              changedRecord = YES;
             }
         }
       // iterate backwards
@@ -918,10 +944,14 @@ void absyncInjectXmlPerson(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddres
             {
               // remove the multivalue
               [abPersonMV removeValueAndLabelAtIndex:idx];
+              changedRecord = YES;
             }
         }
       // NYI: store identifiers (UUIDs), primaryIdentifier?
-      [abPerson setValue:abPersonMV forProperty:propName];
+      if (changedRecord)
+        {
+          [abPerson setValue:abPersonMV forProperty:propName];
+        }
     }
   // remove irrelevant properties
   if (delete_flag)
@@ -939,19 +969,25 @@ void absyncInjectXmlPerson(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddres
             }
         }
     }
+  return changedRecord;
 }
 
-void absyncInjectXmlPersonGroups(NSXMLElement *xmlPerson, ABPerson *abPerson, ABAddressBook *abook, BOOL update_flag, BOOL delete_flag)
+BOOL absyncInjectXmlPersonGroups(NSXMLElement  *xmlPerson,
+                                 ABPerson      *abPerson,
+                                 ABAddressBook *abook,
+                                 BOOL           update_flag,
+                                 BOOL           delete_flag)
 {
+  BOOL changedRecord = NO;
   // inject groups
   NSSet *xmlGroups = absyncGetXmlGroups(xmlPerson);
   for (NSString *groupName in xmlGroups)
     {
       ABGroup *group = absyncFindMatchingAbGroup(groupName, abook);
-      if (group)
+      if (group && ![[abPerson parentGroups] containsObject:group])
         {
           [group addMember:abPerson];
-          //[abook save];
+          changedRecord = YES;
         }
     }
   if (delete_flag)
@@ -961,27 +997,29 @@ void absyncInjectXmlPersonGroups(NSXMLElement *xmlPerson, ABPerson *abPerson, AB
           if (![xmlGroups member:[group valueForProperty:kABGroupNameProperty]])
             {
               [group removeMember:abPerson];
-              //[abook save];
+              changedRecord = YES;
             }
         }
     }
+  return changedRecord;
 }
 
-void absyncInjectXmlPeople(NSXMLDocument *xmldoc, ABAddressBook *abook, BOOL update_flag, BOOL delete_flag)
+void absyncInjectXmlPeople(NSXMLDocument *xmldoc,
+                           ABAddressBook *abook,
+                           BOOL           update_flag,
+                           BOOL           delete_flag)
 {
   NSArray *xmlPeople = absyncGetXmlPeople(xmldoc);
   // for each person in the XML document
   for (NSXMLElement *xmlPerson in xmlPeople)
     {
       ABPerson *abPerson = absyncFindMatchingAbPerson(xmlPerson, abook);
+      BOOL createdPerson = NO;
       // if the person is found
       if (abPerson)
         {
           if (update_flag)
             {
-              // update the person
-              printf("%s\n", [[NSString stringWithFormat:@"Updating person %@ with %@", absyncAbPersonFullName(abPerson),
-                                        absyncXmlPersonFullName(xmlPerson)] UTF8String]);
             }
           else
             {
@@ -994,15 +1032,28 @@ void absyncInjectXmlPeople(NSXMLDocument *xmldoc, ABAddressBook *abook, BOOL upd
           // create a new person entry
           printf("%s\n", [[NSString stringWithFormat:@"Creating person %@", absyncXmlPersonFullName(xmlPerson)] UTF8String]);
           abPerson = [[ABPerson alloc] initWithAddressBook:abook];
+          createdPerson = YES;
         }
       if (abPerson)
         {
           // inject person properties into the person entry
-          absyncInjectXmlPerson(xmlPerson, abPerson, abook, update_flag, delete_flag);
-          [abook save];
+          BOOL updatedPerson = absyncInjectXmlPerson(xmlPerson, abPerson, abook, update_flag, delete_flag);
+          if (updatedPerson)
+            {
+              [abook save];
+            }
           // inject person groups into the person entry
-          absyncInjectXmlPersonGroups(xmlPerson, abPerson, abook, update_flag, delete_flag);
-          [abook save];
+          updatedPerson |= absyncInjectXmlPersonGroups(xmlPerson, abPerson, abook, update_flag, delete_flag);
+          if (updatedPerson)
+            {
+              if (!createdPerson)
+                {
+                  // update the person
+                  printf("%s\n", [[NSString stringWithFormat:@"Updated person %@ with %@", absyncAbPersonFullName(abPerson),
+                                            absyncXmlPersonFullName(xmlPerson)] UTF8String]);
+                }
+              [abook save];
+            }
         }
     }
   if (delete_flag)
