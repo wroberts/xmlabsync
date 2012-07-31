@@ -547,8 +547,8 @@ printHelp()
   printf("absync -r reads an XML file (or standard input if filename is \"-\"),\n");
   printf("creating, modifying, and deleting entries in the Address Book to\n");
   printf("mirror the data read.  If --no-update is specified, the tool will not\n");
-  printf("modify any entries.  If --no-delete is specified, the tool will not\n");
-  printf("delete any entries.\n");
+  printf("modify any existing entries.  If --no-delete is specified, the tool\n");
+  printf("will not delete any existing entries.\n");
   printf("\n");
   printf("absync --replace deletes the local address book and replaces its\n");
   printf("contents with the entries loaded from the given XML file.  USE WITH\n");
