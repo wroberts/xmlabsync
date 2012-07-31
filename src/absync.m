@@ -648,20 +648,35 @@ ABGroup* absyncFindMatchingAbGroup(NSString *groupName, ABAddressBook *abook)
 NSXMLDocument* absyncLoadXml(NSString *filename)
 {
   NSXMLDocument *xmlDoc = nil;
+  NSData *xmlData = nil;
   NSError *err = nil;
-  // NYI: handle "-" for stdin
-  NSURL *fileUrl = [NSURL fileURLWithPath:filename];
-  if (!fileUrl)
+  // handle "-" for stdin
+  if ([filename isEqualToString:@"-"])
     {
-      printf("%s\n", [[NSString stringWithFormat:@"ERROR: Can't create an URL from file %@", filename] UTF8String]);
+      NSFileHandle *stdin = [NSFileHandle fileHandleWithStandardInput];
+      xmlData = [stdin readDataToEndOfFile];
+    }
+  else
+    {
+      NSURL *fileUrl = [NSURL fileURLWithPath:filename];
+      if (!fileUrl)
+        {
+          printf("%s\n", [[NSString stringWithFormat:@"ERROR: Can't create an URL from file %@", filename] UTF8String]);
+          return nil;
+        }
+      xmlData = [NSData dataWithContentsOfURL:fileUrl];
+    }
+  if (!xmlData)
+    {
+      printf("%s\n", [[NSString stringWithFormat:@"ERROR: Could not load any data from %@", filename] UTF8String]);
       return nil;
     }
-  xmlDoc = [[NSXMLDocument alloc] initWithContentsOfURL:fileUrl
+  xmlDoc = [[NSXMLDocument alloc] initWithData:xmlData
                                   options:0
                                   error:&err];
   if (xmlDoc == nil)
     {
-      xmlDoc = [[NSXMLDocument alloc] initWithContentsOfURL:fileUrl
+      xmlDoc = [[NSXMLDocument alloc] initWithData:xmlData
                                       options:NSXMLDocumentTidyXML
                                       error:&err];
     }
