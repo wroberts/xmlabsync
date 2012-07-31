@@ -2,8 +2,7 @@
  absync - Mac OS X Address Book Synchronization
 ================================================
 
-.. include:: <isonum.txt>
-|copy| Copyright 2012 Will Roberts <wildwilhelm@gmail.com>.
+Copyright 2012 Will Roberts <wildwilhelm@gmail.com>.
 
 Licensed under the MIT License (see source file ``absync.m`` for
 details).
