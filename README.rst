@@ -2,7 +2,7 @@
  absync - Mac OS X Address Book Synchronization
 ================================================
 
-Copyright 2012 Will Roberts <wildwilhelm@gmail.com>.
+Copyright (c) 2012 Will Roberts <wildwilhelm@gmail.com>.
 
 Licensed under the MIT License (see source file ``absync.m`` for
 details).
@@ -26,6 +26,8 @@ The process would look roughly like this::
     # integrate updated information from the XML to the system Address Book
     absync -r abook.xml
 
+This should work for Mac OS X 10.4 and better.
+
 .. _Git: http://git-scm.com/
 
 Syntax
@@ -35,7 +37,7 @@ Syntax
 
     absync Version 1.0
     Mac OS X Adddress Book Synchronization
-    (c) 2012 Will Roberts
+    Copyright (c) 2012 Will Roberts
 
     This is a utility to export the Mac OS X Adddress Book as an XML file,
     or to read an XML file in, modifying the Address Book.

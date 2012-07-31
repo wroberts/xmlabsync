@@ -529,7 +529,7 @@ printHelp()
 {
   printVersion();
   printf("Mac OS X Adddress Book Synchronization\n");
-  printf("(c) 2012 Will Roberts\n");
+  printf("Copyright (c) 2012 Will Roberts\n");
   printf("\n");
   printf("This is a utility to export the Mac OS X Adddress Book as an XML file,\n");
   printf("or to read an XML file in, modifying the Address Book.\n");
