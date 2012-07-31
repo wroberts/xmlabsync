@@ -486,12 +486,22 @@ absyncAddressBookBuildXml ( ABAddressBook *abook )
 }
 
 /**
+ * Prints the version number for this program to standard output.
+ */
+void
+printVersion()
+{
+  printf("absync Version %d.%d\n", absync_VERSION_MAJOR, absync_VERSION_MINOR);
+}
+
+/**
  * Prints help for this program to standard output.
  */
 void
 printHelp()
 {
-  printf("absync - Mac OS X Adddress Book Synchronization\n");
+  printVersion();
+  printf("Mac OS X Adddress Book Synchronization\n");
   printf("(c) 2012 Will Roberts\n");
   printf("\n");
   printf("This is a utility to export the Mac OS X Adddress Book as an XML file,\n");
@@ -1551,13 +1561,14 @@ main ( int          argc,
           {"replace",   no_argument, 0, RUN_MODE_REPLACE},
           {"delete",    no_argument, 0, RUN_MODE_DELETE},
           {"help",      no_argument, 0, 'h'},
+          {"version",   no_argument, 0, 'v'},
           {0, 0, 0, 0}
         };
       /* getopt_long stores the option index here. */
       int option_index = 0;
 
       c = getopt_long (argc, (char * const *)argv,
-                       "rwh", long_options, &option_index);
+                       "rwhv", long_options, &option_index);
 
       /* Detect the end of the options. */
       if (c == -1)
@@ -1599,6 +1610,10 @@ main ( int          argc,
             }
           mode = c;
           break;
+        case 'v':
+          printVersion();
+          [pool release];
+          exit(0);
         case 'h':
         case '?':
         default:
