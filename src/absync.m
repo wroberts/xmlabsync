@@ -45,20 +45,192 @@ absyncAbPersonIsCompany ( ABPerson *person )
 }
 
 /**
+ * An Objective-C object which represents a person record loaded from
+ * an XML file.
+ *
+ * This object exists to cache the XML data so that it does not have
+ * to be looked up again every time it is needed.
+ */
+@interface XmlPersonRecord : NSObject
+{
+  NSXMLElement        *xmlElement;
+  NSMutableDictionary *cachedProperties;
+  NSMutableSet        *groups;
+  NSMutableArray      *relevantProperties;
+}
+- (id)initWithXMLElement:(NSXMLElement*)element;
+- (NSSet*)getGroups;
+- (NSArray*) getProperties:(NSArray*)properties;
+- (NSArray*)getResultsForProperty:(NSString*)propertyName;
+- (id)getLastResultForProperty:(NSString*)propertyName;
+- (id)getLastStringValueForProperty:(NSString*)propertyName;
+@end
+
+@implementation XmlPersonRecord
+/**
+ * Constructor.
+ *
+ * \param element the XML element representing a person record
+ * \return \Self.
+ */
+- (id)initWithXMLElement:(NSXMLElement*)element
+{
+  self = [super init];
+  if (self)
+    {
+      xmlElement         = [element retain];
+      cachedProperties   = [[NSMutableDictionary alloc] initWithCapacity:0];
+      groups             = nil;
+      relevantProperties = nil;
+    }
+  return self;
+}
+
+/**
+ * Destructor.
+ */
+- (void)dealloc
+{
+  [xmlElement release];
+  [cachedProperties release];
+  [groups release];
+  [relevantProperties release];
+  [super dealloc];
+}
+
+/**
+ * Gets all the groups that the given XML file person record belongs
+ * to.
+ *
+ * \return An NSSet object containing the names of all the groups the
+ * given person belongs to.
+ */
+- (NSSet*)getGroups
+{
+  if (!groups)
+    {
+      NSError *err = nil;
+      groups = [[NSMutableSet alloc] initWithCapacity:0];
+      for (NSXMLElement *xmlGroup in [xmlElement nodesForXPath:@"./Groups/Group/text()" error:&err])
+        {
+          [groups addObject:[xmlGroup stringValue]];
+        }
+      return groups;
+    }
+  else
+    return groups;
+}
+
+/**
+ * Gets a list of children of this XmlPersonRecord's XML tag which are
+ * named in the passed array object.
+ *
+ * \param properties an NSArray object containing the names of
+ * properties which are of interest
+ * \return An NSArray containing NSXMLElement objects found which
+ * match the names listed in the passed properties array.
+ */
+- (NSArray*) getProperties:(NSArray*)properties
+{
+  if (!relevantProperties)
+    {
+      relevantProperties = [[NSMutableArray alloc] initWithCapacity:0];
+      for (NSXMLElement *child in [xmlElement children])
+        {
+          if ([properties containsObject:[child name]])
+            {
+              [relevantProperties addObject:child];
+            }
+        }
+    }
+  return relevantProperties;
+}
+
+/**
+ * Value accessor.  Caches the result of XML lookups to speed up
+ * absync.
+ *
+ * \param propertyName the name of the property to access
+ * \return An NSArray object containing the result of looking up the
+ * property.
+ */
+- (NSArray*)getResultsForProperty:(NSString*)propertyName
+{
+  if ([cachedProperties objectForKey:propertyName])
+    {
+      return [cachedProperties objectForKey:propertyName];
+    }
+  else
+    {
+      // NYI PERFORMANCE: xpath queries are awfully expensive, and
+      // we're just pulling out lists of child nodes here; this could
+      // easily be made faster by iterating through the children of
+      // xmlElement.  Profiling says this won't make things much
+      // faster tho.
+      id       value = nil;
+      NSError *err   = nil;
+      NSArray *nodes = [xmlElement nodesForXPath:[NSString stringWithFormat:@"./%@", propertyName]
+                                   error:&err];
+      if (nodes)
+        {
+          [cachedProperties setObject:nodes forKey:propertyName];
+          return nodes;
+        }
+      else
+        {
+          return nil;
+        }
+    }
+}
+
+/**
+ * Value accessor.  Caches the result of XML lookups to speed up
+ * absync.
+ *
+ * \param propertyName the name of the property to access
+ * \return Returns the last element in the NSArray object containing
+ * the result of looking up the property.
+ */
+- (id)getLastResultForProperty:(NSString*)propertyName
+{
+  NSArray *nodes = [self getResultsForProperty:propertyName];
+  if (nodes && [nodes count])
+    {
+      return [nodes objectAtIndex:[nodes count]-1];
+    }
+  return nil;
+}
+
+/**
+ * Value accessor.  Caches the result of XML lookups to speed up
+ * absync.
+ *
+ * \param propertyName the name of the property to access
+ * \return Returns the string value of the last element in the NSArray
+ * object containing the result of looking up the property.
+ */
+- (id)getLastStringValueForProperty:(NSString*)propertyName
+{
+  id value = [self getLastResultForProperty:propertyName];
+  if (value)
+    {
+      return [value stringValue];
+    }
+  return nil;
+}
+@end
+
+/**
  * Tests whether the given XML file record represents a company.
  *
  * \param xmlPerson the XML file record to test
  * \return YES if the record is a company; NO otherwise.
  */
 BOOL
-absyncXmlPersonIsCompany ( NSXMLElement *xmlPerson )
+absyncXmlPersonIsCompany ( XmlPersonRecord *xmlPerson )
 {
-  NSError *err   = nil;
-  NSArray *nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABPersonFlags]
-                              error:&err];
-  if (nodes &&
-      [nodes count] &&
-      ([[[nodes objectAtIndex:[nodes count]-1] stringValue] integerValue] & kABShowAsCompany))
+  if ([xmlPerson getLastStringValueForProperty:kABPersonFlags] &&
+      [[xmlPerson getLastStringValueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
     return YES;
   return NO;
 }
@@ -113,43 +285,36 @@ absyncAbPersonFullName ( ABPerson *person )
  * \return A NSString* containing the generated full name.
  */
 NSString*
-absyncXmlPersonFullName ( NSXMLElement *xmlPerson )
+absyncXmlPersonFullName ( XmlPersonRecord *xmlPerson )
 {
   NSString *name   = [NSString string];
-  NSArray  *nodes  = nil;
-  NSError  *err    = nil;
   if (absyncXmlPersonIsCompany(xmlPerson))
     {
-      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABOrganizationProperty]
-                              error:&err]) && [nodes count])
+      if ([xmlPerson getLastStringValueForProperty:kABOrganizationProperty])
         {
-          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABOrganizationProperty]];
         }
     }
   else
     {
-      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABLastNameProperty]
-                              error:&err]) && [nodes count])
+      if ([xmlPerson getLastStringValueForProperty:kABLastNameProperty])
         {
-          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABLastNameProperty]];
           name = [name stringByAppendingString:@", "];
         }
-      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABTitleProperty]
-                              error:&err]) && [nodes count])
+      if ([xmlPerson getLastStringValueForProperty:kABTitleProperty])
         {
-          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABTitleProperty]];
           name = [name stringByAppendingString:@" "];
         }
-      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABFirstNameProperty]
-                              error:&err]) && [nodes count])
+      if ([xmlPerson getLastStringValueForProperty:kABFirstNameProperty])
         {
-          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABFirstNameProperty]];
         }
-      if ((nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", kABMiddleNameProperty]
-                              error:&err]) && [nodes count])
+      if ([xmlPerson getLastStringValueForProperty:kABMiddleNameProperty])
         {
           name = [name stringByAppendingString:@" "];
-          name = [name stringByAppendingString:[[nodes objectAtIndex:[nodes count]-1] stringValue]];
+          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABMiddleNameProperty]];
         }
     }
   return name;
@@ -652,7 +817,7 @@ absyncDeleteAddressBook()
 - (id)initWithProperty:(NSString*)n value:(NSString*)v weighting:(NSInteger)w;
 + (PersonPropertyMatch*)propertyMatchWithProperty:(NSString*)n value:(NSString*)v weighting:(NSInteger)w;
 - (NSInteger)scoreAbPerson:(ABPerson*)abPerson;
-- (NSInteger)scoreXmlPerson:(NSXMLElement*)xmlPerson;
+- (NSInteger)scoreXmlPerson:(XmlPersonRecord*)xmlPerson;
 @end
 
 @implementation PersonPropertyMatch
@@ -744,15 +909,12 @@ absyncDeleteAddressBook()
  * \return An integer representing the given person's score on this
  * property (bigger scores are better).
  */
-- (NSInteger)scoreXmlPerson:(NSXMLElement*)xmlPerson
+- (NSInteger)scoreXmlPerson:(XmlPersonRecord*)xmlPerson
 {
   NSString *xmlPersonValue  = [NSString string];
-  NSArray  *nodes           = nil;
-  NSError  *err             = nil;
-  nodes = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", property] error:&err];
-  if (nodes && [nodes count])
+  if ([xmlPerson getLastStringValueForProperty:property])
     {
-      xmlPersonValue = [[nodes objectAtIndex:[nodes count]-1] stringValue];
+      xmlPersonValue = [xmlPerson getLastStringValueForProperty:property];
     }
   if ([xmlPersonValue isEqualToString:value])
     return weighting;
@@ -796,8 +958,8 @@ absyncPersonPropertyWeighting()
  * found.
  */
 ABPerson*
-absyncFindMatchingAbPerson ( NSXMLElement  *xmlPerson,
-                             ABAddressBook *abook )
+absyncFindMatchingAbPerson ( XmlPersonRecord *xmlPerson,
+                             ABAddressBook   *abook )
 {
   NSDictionary        *propertyWeighting  = absyncPersonPropertyWeighting();
   NSMutableDictionary *props              = [NSMutableDictionary dictionaryWithCapacity:0];
@@ -807,11 +969,9 @@ absyncFindMatchingAbPerson ( NSXMLElement  *xmlPerson,
       if ([propName isEqualToString:kABOrganizationProperty] != xmlPersonIsCompany)
         continue;
       NSString *propValue  = [NSString string];
-      NSError  *err        = nil;
-      NSArray  *nodes      = [xmlPerson nodesForXPath:[NSString stringWithFormat:@"./%@", propName] error:&err];
-      if (nodes && [nodes count])
+      if ([xmlPerson getLastStringValueForProperty:propName])
         {
-          propValue = [[nodes objectAtIndex:[nodes count]-1] stringValue];
+          propValue = [xmlPerson getLastStringValueForProperty:propName];
         }
       [props setObject:[PersonPropertyMatch propertyMatchWithProperty:propName
                                             value:propValue
@@ -845,12 +1005,12 @@ absyncFindMatchingAbPerson ( NSXMLElement  *xmlPerson,
  * Address Book person record.
  *
  * \param abPerson the person record to match
- * \param xmlPeople an array of NSXMLElement objects representing the
- * person records in an XML file
- * \return A matching NSXMLElement object, or nil if no matching
+ * \param xmlPeople an array of XmlPersonRecord objects representing
+ * the person records in an XML file
+ * \return A matching XmlPersonRecord object, or nil if no matching
  * record is found.
  */
-NSXMLElement*
+XmlPersonRecord*
 absyncFindMatchingXmlPerson ( ABPerson *abPerson,
                               NSArray  *xmlPeople )
 {
@@ -874,7 +1034,7 @@ absyncFindMatchingXmlPerson ( ABPerson *abPerson,
 
   NSInteger     bestScore      = PERSON_MATCHING_SCORE_THRESHOLD;
   NSXMLElement *bestCandidate  = nil;
-  for (NSXMLElement *xmlPerson in xmlPeople)
+  for (XmlPersonRecord *xmlPerson in xmlPeople)
     {
       if (abPersonIsCompany != absyncXmlPersonIsCompany(xmlPerson))
         continue;
@@ -1069,8 +1229,15 @@ absyncInjectXmlGroups ( NSXMLDocument *xmldoc,
 NSArray*
 absyncGetXmlPeople ( NSXMLDocument *xmldoc )
 {
+  NSMutableArray *xmlPeople = [NSMutableArray arrayWithCapacity:0];
   NSError *err = nil;
-  return [xmldoc nodesForXPath:@"/AddressBook/Person" error:&err];
+  for (NSXMLElement *element in [xmldoc nodesForXPath:@"/AddressBook/Person" error:&err])
+    {
+      XmlPersonRecord *xmlPerson = [[XmlPersonRecord alloc] initWithXMLElement:element];
+      [xmlPeople addObject:xmlPerson];
+      [xmlPerson release];
+    }
+  return xmlPeople;
 }
 
 /**
@@ -1126,26 +1293,6 @@ absyncMakeMutableCopyOfMultiValue ( ABMultiValue *multivalue )
 }
 
 /**
- * Gets all the groups that the given XML file person record belongs
- * to.
- *
- * \param xmlPerson the XML file person record
- * \return An NSSet object containing the names of all the groups the
- * given person belongs to.
- */
-NSSet*
-absyncGetXmlPersonGroups ( NSXMLElement *xmlPerson )
-{
-  NSError      *err     = nil;
-  NSMutableSet *retVal  = [NSMutableSet setWithCapacity:0];
-  for (NSXMLElement *xmlGroup in [xmlPerson nodesForXPath:@"./Groups/Group/text()" error:&err])
-    {
-      [retVal addObject:[xmlGroup stringValue]];
-    }
-  return retVal;
-}
-
-/**
  * Updates the properties of a person record in the user's Address
  * Book to match the information stored in the given XML file person
  * record.
@@ -1166,23 +1313,16 @@ absyncGetXmlPersonGroups ( NSXMLElement *xmlPerson )
  * this operation; NO otherwise.
  */
 BOOL
-absyncInjectXmlPerson ( NSXMLElement  *xmlPerson,
-                        ABPerson      *abPerson,
-                        ABAddressBook *abook,
-                        BOOL           update_flag,
-                        BOOL           delete_flag )
+absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
+                        ABPerson        *abPerson,
+                        ABAddressBook   *abook,
+                        BOOL             update_flag,
+                        BOOL             delete_flag )
 {
   // inject properties
   BOOL            changedRecord       = NO;
   NSArray        *relevantProperties  = absyncAbPersonRelevantProperties();
-  NSMutableArray *properties          = [NSMutableArray arrayWithCapacity:0];
-  for (NSXMLElement *child in [xmlPerson children])
-    {
-      if ([relevantProperties containsObject:[child name]])
-        {
-          [properties addObject:child];
-        }
-    }
+  NSMutableArray *properties          = [xmlPerson getProperties:relevantProperties];
   // set relevant properties
   for (NSXMLElement *prop in properties)
     {
@@ -1369,15 +1509,15 @@ absyncInjectXmlPerson ( NSXMLElement  *xmlPerson,
  * this operation; NO otherwise.
  */
 BOOL
-absyncInjectXmlPersonGroups ( NSXMLElement  *xmlPerson,
-                              ABPerson      *abPerson,
-                              ABAddressBook *abook,
-                              BOOL           update_flag,
-                              BOOL           delete_flag )
+absyncInjectXmlPersonGroups ( XmlPersonRecord *xmlPerson,
+                              ABPerson        *abPerson,
+                              ABAddressBook   *abook,
+                              BOOL             update_flag,
+                              BOOL             delete_flag )
 {
   // inject groups
   BOOL   changedRecord = NO;
-  NSSet *xmlGroups     = absyncGetXmlPersonGroups(xmlPerson);
+  NSSet *xmlGroups     = [xmlPerson getGroups];
   for (NSString *groupName in xmlGroups)
     {
       ABGroup *group = absyncFindMatchingAbGroup(groupName, abook);
@@ -1424,7 +1564,7 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
 {
   NSArray *xmlPeople = absyncGetXmlPeople(xmldoc);
   // for each person in the XML document
-  for (NSXMLElement *xmlPerson in xmlPeople)
+  for (XmlPersonRecord *xmlPerson in xmlPeople)
     {
       ABPerson *abPerson      = absyncFindMatchingAbPerson(xmlPerson, abook);
       BOOL      createdPerson = NO;
@@ -1482,12 +1622,17 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
         }
     }
   // update the IsMe property
-  NSError *err    = nil;
-  NSArray *nodes  = [xmldoc nodesForXPath:@"/AddressBook/Person[IsMe=1]" error:&err];
-  if (nodes && [nodes count])
+  XmlPersonRecord *xmlMe = nil;
+  for (XmlPersonRecord *xmlPerson in xmlPeople)
     {
-      NSXMLElement *xmlMe  = [nodes objectAtIndex:[nodes count]-1];
-      ABPerson     *abMe   = absyncFindMatchingAbPerson(xmlMe, abook);
+      if ([[xmlPerson getLastStringValueForProperty:@"IsMe"] isEqualToString:@"1"])
+        {
+          xmlMe = xmlPerson;
+        }
+    }
+  if (xmlMe)
+    {
+      ABPerson *abMe = absyncFindMatchingAbPerson(xmlMe, abook);
       if (!abMe)
         {
           printf("%s\n", [[NSString stringWithFormat:@"WARNING: could not find matching record for person %@",
