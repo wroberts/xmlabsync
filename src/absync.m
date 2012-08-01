@@ -230,6 +230,248 @@ absyncPersonPropertyWeighting()
 
 
 // ======================================================================
+//  ADDRESS BOOK PERSON RECORDS
+// ======================================================================
+
+/**
+ * A category on the ABPerson class to enable some absync-specific
+ * functionality to be associated directly with the class.
+ */
+@interface ABPerson (absync)
+- (BOOL)isCompany;
+- (NSString*)fullName;
+- (NSComparisonResult)compare:(ABPerson*)otherPerson;
+- (NSXMLElement*)buildXmlIsMe:(BOOL)isMe;
+@end
+
+@implementation ABPerson (absync)
+/**
+ * Tests whether this address book record represents a company.
+ *
+ * \return YES if the record is a company; NO otherwise.
+ */
+- (BOOL)isCompany
+{
+  if ([[self valueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
+    return YES;
+  return NO;
+}
+
+/**
+ * Returns the full name of this person record.
+ *
+ * The format used is "LastName, FirstName MiddleName".
+ *
+ * \return A NSString* containing the generated full name.
+ */
+- (NSString*)fullName
+{
+  NSString *name = [NSString string];
+  if ([self isCompany])
+    {
+      name = [name stringByAppendingString:[self valueForProperty:kABOrganizationProperty]];
+    }
+  else
+    {
+      if ([self valueForProperty:kABLastNameProperty])
+        {
+          name = [name stringByAppendingString:[self valueForProperty:kABLastNameProperty]];
+          name = [name stringByAppendingString:@", "];
+        }
+      if ([self valueForProperty:kABTitleProperty])
+        {
+          name = [name stringByAppendingString:[self valueForProperty:kABTitleProperty]];
+          name = [name stringByAppendingString:@" "];
+        }
+      if ([self valueForProperty:kABFirstNameProperty])
+        {
+          name = [name stringByAppendingString:[self valueForProperty:kABFirstNameProperty]];
+        }
+      if ([self valueForProperty:kABMiddleNameProperty])
+        {
+          name = [name stringByAppendingString:@" "];
+          name = [name stringByAppendingString:[self valueForProperty:kABMiddleNameProperty]];
+        }
+    }
+  return name;
+}
+
+/**
+ * A comparator function for sorting ABPerson records by name.
+ *
+ * \param otherPerson the other person record to compare to this one
+ * \return -1 if this person is less than the second; +1 if this
+ * person is greater than the second, 0 if they are equal.
+ */
+- (NSComparisonResult)compare:(ABPerson*)otherPerson
+{
+  return [[self fullName] compare:[otherPerson fullName]];
+}
+
+/**
+ * Builds an XML element representing this Address Book person record.
+ *
+ * \param isMe a flag indicating if this person is "Me" in the address book
+ * \return An NSXMLElement object representing this person record.
+ */
+- (NSXMLElement*)buildXmlIsMe:(BOOL)isMe
+{
+  NSArray      *personProperties  = absyncAbPersonRelevantProperties();
+  NSXMLElement *xmlPerson         = (NSXMLElement*)[NSXMLNode elementWithName:@"Person"];
+  // is me?
+  if (isMe)
+    {
+      [xmlPerson addChild:[NSXMLNode elementWithName:@"IsMe" stringValue:@"1"]];
+    }
+  // image data
+  if ([self imageData])
+    {
+      NSString *base64ImageData = [[GTMStringEncoding rfc4648Base64StringEncoding] encode:[self imageData]];
+      [xmlPerson addChild:[NSXMLNode elementWithName:@"ImageData"
+                                     children:[NSArray arrayWithObjects: [NSXMLNode textWithStringValue:base64ImageData], nil]
+                                     attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
+                                                                                      stringValue:@"base64"], nil]]];
+    }
+  // person groups
+  NSMutableArray *sortedGroups = [NSMutableArray arrayWithCapacity:0];
+  for (ABGroup *group in [self parentGroups])
+    {
+      [sortedGroups addObject:[group valueForProperty:kABGroupNameProperty]];
+    }
+  [sortedGroups sortUsingSelector:@selector(compare:)];
+  NSXMLElement *xmlGroups = (NSXMLElement*)[NSXMLNode elementWithName:@"Groups"];
+  for (NSString *groupName in sortedGroups)
+    {
+      [xmlGroups addChild:[NSXMLNode elementWithName:@"Group" stringValue:groupName]];
+    }
+  [xmlPerson addChild:xmlGroups];
+  // person properties
+  for (NSString* property in personProperties)
+    {
+      if ([property isEqualToString:kABPersonFlags] || [self valueForProperty:property])
+        {
+          id value = [self valueForProperty:property];
+          // string
+          if ([value isKindOfClass:[NSString class]])
+            {
+              [xmlPerson addChild:[NSXMLNode elementWithName:property
+                                             children:[NSArray arrayWithObjects: [NSXMLNode textWithStringValue:value], nil]
+                                             attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
+                                                                                              stringValue:@"string"], nil]]];
+            }
+          // date
+          else if ([value isKindOfClass:[NSDate class]])
+            {
+              [xmlPerson addChild:[NSXMLNode elementWithName:property
+                                             children:[NSArray arrayWithObjects:
+                                                                 [NSXMLNode textWithStringValue:[absyncIsoDateFormatter() stringFromDate:value]], nil]
+                                             attributes:[NSArray arrayWithObjects:
+                                                                   [NSXMLNode attributeWithName:@"type" stringValue:@"date"], nil]]];
+            }
+          else if ([value isKindOfClass:[ABMultiValue class]])
+            {
+              // sort entries of the multivalue
+              // NYI: store identifiers (UUIDs), primaryIdentifier?
+              NSMutableArray *sortedEntries = [NSMutableArray arrayWithCapacity:0];
+              int i = 0;
+              for (; i < [value count]; i++)
+                {
+                  [sortedEntries addObject:[MultiValueEntry entryWithLabel:[value labelAtIndex:i] index:i]];
+                }
+              [sortedEntries sortUsingSelector:@selector(compare:)];
+
+              // multistring
+              if ([value propertyType] == kABMultiStringProperty)
+                {
+                  NSXMLElement *xmlValue = (NSXMLElement*)[NSXMLNode elementWithName:property
+                                                                     children:nil
+                                                                     attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
+                                                                                                                      stringValue:@"multistring"], nil]];
+                  [xmlPerson addChild:xmlValue];
+                  for (MultiValueEntry *entry in sortedEntries)
+                    {
+                      NSXMLElement *xmlItem =
+                        (NSXMLElement*)[NSXMLNode elementWithName:@"item"
+                                                  children:[NSArray arrayWithObjects:
+                                                                      [NSXMLNode elementWithName:@"key" stringValue:[entry label]],
+                                                                    [NSXMLNode elementWithName:@"value" stringValue:[value valueAtIndex:[entry index]]],
+                                                                    nil]
+                                                  attributes:nil];
+                      [xmlValue addChild:xmlItem];
+                    }
+                }
+              // multidate
+              else if ([value propertyType] == kABMultiDateProperty)
+                {
+                  NSXMLElement *xmlValue = (NSXMLElement*)[NSXMLNode elementWithName:property
+                                                                     children:nil
+                                                                     attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
+                                                                                                                      stringValue:@"multidate"], nil]];
+                  [xmlPerson addChild:xmlValue];
+                  for (MultiValueEntry *entry in sortedEntries)
+                    {
+                      NSXMLElement *xmlItem =
+                        (NSXMLElement*)[NSXMLNode elementWithName:@"item"
+                                                  children:[NSArray arrayWithObjects:
+                                                                      [NSXMLNode elementWithName:@"key" stringValue:[entry label]],
+                                                                    [NSXMLNode elementWithName:@"value" stringValue:
+                                                                                 [absyncIsoDateFormatter() stringFromDate:[value valueAtIndex:[entry index]]]],
+                                                                    nil]
+                                                  attributes:nil];
+                      [xmlValue addChild:xmlItem];
+                    }
+                }
+              // multidictionary
+              else if ([value propertyType] == kABMultiDictionaryProperty)
+                {
+                  NSXMLElement *xmlValue = (NSXMLElement*)[NSXMLNode elementWithName:property
+                                                                     children:nil
+                                                                     attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
+                                                                                                                      stringValue:@"multidict"], nil]];
+                  [xmlPerson addChild:xmlValue];
+                  for (MultiValueEntry *entry in sortedEntries)
+                    {
+                      NSXMLElement *xmlItem = (NSXMLElement*)[NSXMLNode elementWithName:@"item"];
+                      [xmlItem addChild:[NSXMLNode elementWithName:@"key" stringValue:[entry label]]];
+                      NSDictionary *dict            = [value valueAtIndex:[entry index]];
+                      NSArray      *sortedDictKeys  = [[dict allKeys] sortedArrayUsingSelector:@selector(compare:)];
+                      NSXMLElement *xmlDict         = (NSXMLElement*)[NSXMLNode elementWithName:@"Dict"];
+                      for (NSString *dictKey in sortedDictKeys)
+                        {
+                          id dictValue = [dict objectForKey:dictKey];
+                          assert([dictValue isKindOfClass:[NSString class]]);
+                          NSXMLElement *xmlDictItem = (NSXMLElement*)[NSXMLNode elementWithName:@"DictItem"];
+                          [xmlDictItem addChild:[NSXMLNode elementWithName:@"key" stringValue:dictKey]];
+                          [xmlDictItem addChild:[NSXMLNode elementWithName:@"value" stringValue:dictValue]];
+                          [xmlDict addChild:xmlDictItem];
+                        }
+                      [xmlItem addChild:[NSXMLNode elementWithName:@"value"
+                                                   children:[NSArray arrayWithObjects:xmlDict, nil]
+                                                   attributes:nil]];
+                      [xmlValue addChild:xmlItem];
+                    }
+                }
+              // multi date components // OS X 10.7+ only
+            }
+          // person flags
+          else if ([value isKindOfClass:[NSNumber class]])
+            {
+              [xmlPerson addChild:[NSXMLNode elementWithName:property
+                                             children:[NSArray arrayWithObjects: [NSXMLNode textWithStringValue:[value stringValue]], nil]
+                                             attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
+                                                                                              stringValue:@"number"], nil]]];
+            }
+          // date components // OS X 10.7+ only
+          //else if ([value isKindOfClass:[NSDateComponents class]])
+          //  {
+          //  }
+        }
+    }
+  return xmlPerson;
+}
+@end
+
+// ======================================================================
 //  XML PERSON RECORDS
 // ======================================================================
 
@@ -603,243 +845,6 @@ absyncPersonPropertyWeighting()
 // ======================================================================
 
 /**
- * Tests whether the given address book record represents a company.
- *
- * \param person the address book record to test
- * \return YES if the record is a company; NO otherwise.
- */
-BOOL
-absyncAbPersonIsCompany ( ABPerson *person )
-{
-  if ([[person valueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
-    return YES;
-  return NO;
-}
-
-/**
- * Returns the full name of the given person record.
- *
- * The format used is "LastName, FirstName MiddleName".
- *
- * \param person the record whose name to get
- * \return A NSString* containing the generated full name.
- */
-NSString*
-absyncAbPersonFullName ( ABPerson *person )
-{
-  NSString *name = [NSString string];
-  if (absyncAbPersonIsCompany(person))
-    {
-      name = [name stringByAppendingString:[person valueForProperty:kABOrganizationProperty]];
-    }
-  else
-    {
-      if ([person valueForProperty:kABLastNameProperty])
-        {
-          name = [name stringByAppendingString:[person valueForProperty:kABLastNameProperty]];
-          name = [name stringByAppendingString:@", "];
-        }
-      if ([person valueForProperty:kABTitleProperty])
-        {
-          name = [name stringByAppendingString:[person valueForProperty:kABTitleProperty]];
-          name = [name stringByAppendingString:@" "];
-        }
-      if ([person valueForProperty:kABFirstNameProperty])
-        {
-          name = [name stringByAppendingString:[person valueForProperty:kABFirstNameProperty]];
-        }
-      if ([person valueForProperty:kABMiddleNameProperty])
-        {
-          name = [name stringByAppendingString:@" "];
-          name = [name stringByAppendingString:[person valueForProperty:kABMiddleNameProperty]];
-        }
-    }
-  return name;
-}
-
-/**
- * A comparator function for sorting ABPerson records by name.
- *
- * \param person1 the first person record to compare
- * \param person2 the second person record to compare
- * \param context not used
- * \return -1 if the first person is less than the second; +1 if the
- * first is greater than the second, 0 if they are equal.
- */
-NSInteger
-absyncAbPersonSort ( ABPerson *person1,
-                     ABPerson *person2,
-                     void     *context )
-{
-  return [absyncAbPersonFullName(person1) compare:absyncAbPersonFullName(person2)];
-}
-
-/**
- * Builds an XML element representing the given Address Book person record.
- *
- * \param person the person record to build the XML for
- * \param isMe a flag indicating if the given person is "Me" in the address book
- * \return An NSXMLElement object representing the passed person.
- */
-NSXMLElement*
-absyncAbPersonBuildXml ( ABPerson *person,
-                         BOOL      isMe )
-{
-  NSArray      *personProperties  = absyncAbPersonRelevantProperties();
-  NSXMLElement *xmlPerson         = (NSXMLElement*)[NSXMLNode elementWithName:@"Person"];
-  // is me?
-  if (isMe)
-    {
-      [xmlPerson addChild:[NSXMLNode elementWithName:@"IsMe" stringValue:@"1"]];
-    }
-  // image data
-  if ([person imageData])
-    {
-      NSString *base64ImageData = [[GTMStringEncoding rfc4648Base64StringEncoding] encode:[person imageData]];
-      [xmlPerson addChild:[NSXMLNode elementWithName:@"ImageData"
-                                     children:[NSArray arrayWithObjects: [NSXMLNode textWithStringValue:base64ImageData], nil]
-                                     attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
-                                                                                      stringValue:@"base64"], nil]]];
-    }
-  // person groups
-  NSMutableArray *sortedGroups = [NSMutableArray arrayWithCapacity:0];
-  for (ABGroup *group in [person parentGroups])
-    {
-      [sortedGroups addObject:[group valueForProperty:kABGroupNameProperty]];
-    }
-  [sortedGroups sortUsingSelector:@selector(compare:)];
-  NSXMLElement *xmlGroups = (NSXMLElement*)[NSXMLNode elementWithName:@"Groups"];
-  for (NSString *groupName in sortedGroups)
-    {
-      [xmlGroups addChild:[NSXMLNode elementWithName:@"Group" stringValue:groupName]];
-    }
-  [xmlPerson addChild:xmlGroups];
-  // person properties
-  for (NSString* property in personProperties)
-    {
-      if ([property isEqualToString:kABPersonFlags] || [person valueForProperty:property])
-        {
-          id value = [person valueForProperty:property];
-          // string
-          if ([value isKindOfClass:[NSString class]])
-            {
-              [xmlPerson addChild:[NSXMLNode elementWithName:property
-                                             children:[NSArray arrayWithObjects: [NSXMLNode textWithStringValue:value], nil]
-                                             attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
-                                                                                              stringValue:@"string"], nil]]];
-            }
-          // date
-          else if ([value isKindOfClass:[NSDate class]])
-            {
-              [xmlPerson addChild:[NSXMLNode elementWithName:property
-                                             children:[NSArray arrayWithObjects:
-                                                                 [NSXMLNode textWithStringValue:[absyncIsoDateFormatter() stringFromDate:value]], nil]
-                                             attributes:[NSArray arrayWithObjects:
-                                                                   [NSXMLNode attributeWithName:@"type" stringValue:@"date"], nil]]];
-            }
-          else if ([value isKindOfClass:[ABMultiValue class]])
-            {
-              // sort entries of the multivalue
-              // NYI: store identifiers (UUIDs), primaryIdentifier?
-              NSMutableArray *sortedEntries = [NSMutableArray arrayWithCapacity:0];
-              int i = 0;
-              for (; i < [value count]; i++)
-                {
-                  [sortedEntries addObject:[MultiValueEntry entryWithLabel:[value labelAtIndex:i] index:i]];
-                }
-              [sortedEntries sortUsingSelector:@selector(compare:)];
-
-              // multistring
-              if ([value propertyType] == kABMultiStringProperty)
-                {
-                  NSXMLElement *xmlValue = (NSXMLElement*)[NSXMLNode elementWithName:property
-                                                                     children:nil
-                                                                     attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
-                                                                                                                      stringValue:@"multistring"], nil]];
-                  [xmlPerson addChild:xmlValue];
-                  for (MultiValueEntry *entry in sortedEntries)
-                    {
-                      NSXMLElement *xmlItem =
-                        (NSXMLElement*)[NSXMLNode elementWithName:@"item"
-                                                  children:[NSArray arrayWithObjects:
-                                                                      [NSXMLNode elementWithName:@"key" stringValue:[entry label]],
-                                                                    [NSXMLNode elementWithName:@"value" stringValue:[value valueAtIndex:[entry index]]],
-                                                                    nil]
-                                                  attributes:nil];
-                      [xmlValue addChild:xmlItem];
-                    }
-                }
-              // multidate
-              else if ([value propertyType] == kABMultiDateProperty)
-                {
-                  NSXMLElement *xmlValue = (NSXMLElement*)[NSXMLNode elementWithName:property
-                                                                     children:nil
-                                                                     attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
-                                                                                                                      stringValue:@"multidate"], nil]];
-                  [xmlPerson addChild:xmlValue];
-                  for (MultiValueEntry *entry in sortedEntries)
-                    {
-                      NSXMLElement *xmlItem =
-                        (NSXMLElement*)[NSXMLNode elementWithName:@"item"
-                                                  children:[NSArray arrayWithObjects:
-                                                                      [NSXMLNode elementWithName:@"key" stringValue:[entry label]],
-                                                                    [NSXMLNode elementWithName:@"value" stringValue:
-                                                                                 [absyncIsoDateFormatter() stringFromDate:[value valueAtIndex:[entry index]]]],
-                                                                    nil]
-                                                  attributes:nil];
-                      [xmlValue addChild:xmlItem];
-                    }
-                }
-              // multidictionary
-              else if ([value propertyType] == kABMultiDictionaryProperty)
-                {
-                  NSXMLElement *xmlValue = (NSXMLElement*)[NSXMLNode elementWithName:property
-                                                                     children:nil
-                                                                     attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
-                                                                                                                      stringValue:@"multidict"], nil]];
-                  [xmlPerson addChild:xmlValue];
-                  for (MultiValueEntry *entry in sortedEntries)
-                    {
-                      NSXMLElement *xmlItem = (NSXMLElement*)[NSXMLNode elementWithName:@"item"];
-                      [xmlItem addChild:[NSXMLNode elementWithName:@"key" stringValue:[entry label]]];
-                      NSDictionary *dict            = [value valueAtIndex:[entry index]];
-                      NSArray      *sortedDictKeys  = [[dict allKeys] sortedArrayUsingSelector:@selector(compare:)];
-                      NSXMLElement *xmlDict         = (NSXMLElement*)[NSXMLNode elementWithName:@"Dict"];
-                      for (NSString *dictKey in sortedDictKeys)
-                        {
-                          id dictValue = [dict objectForKey:dictKey];
-                          assert([dictValue isKindOfClass:[NSString class]]);
-                          NSXMLElement *xmlDictItem = (NSXMLElement*)[NSXMLNode elementWithName:@"DictItem"];
-                          [xmlDictItem addChild:[NSXMLNode elementWithName:@"key" stringValue:dictKey]];
-                          [xmlDictItem addChild:[NSXMLNode elementWithName:@"value" stringValue:dictValue]];
-                          [xmlDict addChild:xmlDictItem];
-                        }
-                      [xmlItem addChild:[NSXMLNode elementWithName:@"value"
-                                                   children:[NSArray arrayWithObjects:xmlDict, nil]
-                                                   attributes:nil]];
-                      [xmlValue addChild:xmlItem];
-                    }
-                }
-              // multi date components // OS X 10.7+ only
-            }
-          // person flags
-          else if ([value isKindOfClass:[NSNumber class]])
-            {
-              [xmlPerson addChild:[NSXMLNode elementWithName:property
-                                             children:[NSArray arrayWithObjects: [NSXMLNode textWithStringValue:[value stringValue]], nil]
-                                             attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
-                                                                                              stringValue:@"number"], nil]]];
-            }
-          // date components // OS X 10.7+ only
-          //else if ([value isKindOfClass:[NSDateComponents class]])
-          //  {
-          //  }
-        }
-    }
-  return xmlPerson;
-}
-
-/**
  * Builds a complete XML document representing the Address Book.
  *
  * \param abook the Address Book to create the XML for
@@ -849,11 +854,11 @@ NSXMLDocument*
 absyncAddressBookBuildXml ( ABAddressBook *abook )
 {
   // sort the address book entries
-  NSArray      *people  = [[abook people] sortedArrayUsingFunction:absyncAbPersonSort context:NULL];
+  NSArray      *people  = [[abook people] sortedArrayUsingSelector:@selector(compare:)];
   NSXMLElement *root    = (NSXMLElement*)[NSXMLNode elementWithName:@"AddressBook"];
   for (ABPerson* person in people)
     {
-      [root addChild:absyncAbPersonBuildXml(person, [abook me] == person)];
+      [root addChild:[person buildXmlIsMe:[abook me] == person]];
     }
   NSXMLDocument *xmlDoc = [[NSXMLDocument alloc] initWithRootElement:root];
   [xmlDoc setVersion:@"1.0"];
@@ -1017,7 +1022,7 @@ absyncFindMatchingAbPerson ( XmlPersonRecord *xmlPerson,
   ABPerson *bestCandidate  = nil;
   for (ABPerson *abPerson in [abook people])
     {
-      if (xmlPersonIsCompany != absyncAbPersonIsCompany(abPerson))
+      if (xmlPersonIsCompany != [abPerson isCompany])
         continue;
       NSInteger score = 0;
       for (PersonPropertyMatch *properties in [props allValues])
@@ -1050,7 +1055,7 @@ absyncFindMatchingXmlPerson ( ABPerson *abPerson,
 {
   NSDictionary        *propertyWeighting  = absyncPersonPropertyWeighting();
   NSMutableDictionary *props              = [NSMutableDictionary dictionaryWithCapacity:0];
-  BOOL                 abPersonIsCompany  = absyncAbPersonIsCompany(abPerson);
+  BOOL                 abPersonIsCompany  = [abPerson isCompany];
   for (NSString *propName in [propertyWeighting allKeys])
     {
       if ([propName isEqualToString:kABOrganizationProperty] != abPersonIsCompany)
@@ -1654,7 +1659,7 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
               if (!createdPerson)
                 {
                   // update the person
-                  printf("%s\n", [[NSString stringWithFormat:@"Updated person %@ with %@", absyncAbPersonFullName(abPerson),
+                  printf("%s\n", [[NSString stringWithFormat:@"Updated person %@ with %@", [abPerson fullName],
                                             [xmlPerson fullName]] UTF8String]);
                 }
               [abook save];
@@ -1670,7 +1675,7 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
           if (!absyncFindMatchingXmlPerson(abPerson, xmlPeople))
             {
               // delete the person
-              printf("%s\n", [[NSString stringWithFormat:@"Deleting person %@", absyncAbPersonFullName(abPerson)] UTF8String]);
+              printf("%s\n", [[NSString stringWithFormat:@"Deleting person %@", [abPerson fullName]] UTF8String]);
               [abook removeRecord:abPerson];
               [abook save];
             }
@@ -1696,7 +1701,7 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
         }
       if ([abook me] != abMe && (update_flag || ![abook me]))
         {
-          printf("%s\n", [[NSString stringWithFormat:@"Setting person %@ to Me", absyncAbPersonFullName(abMe)] UTF8String]);
+          printf("%s\n", [[NSString stringWithFormat:@"Setting person %@ to Me", [abMe fullName]] UTF8String]);
           [abook setMe:abMe];
           [abook save];
         }
