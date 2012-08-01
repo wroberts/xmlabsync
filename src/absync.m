@@ -31,20 +31,6 @@
 #include "absyncconfig.h"
 
 /**
- * Tests whether the given address book record represents a company.
- *
- * \param person the address book record to test
- * \return YES if the record is a company; NO otherwise.
- */
-BOOL
-absyncAbPersonIsCompany ( ABPerson *person )
-{
-  if ([[person valueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
-    return YES;
-  return NO;
-}
-
-/**
  * An Objective-C object which represents a person record loaded from
  * an XML file.
  *
@@ -276,6 +262,20 @@ absyncAbPersonIsCompany ( ABPerson *person )
   return nil;
 }
 @end
+
+/**
+ * Tests whether the given address book record represents a company.
+ *
+ * \param person the address book record to test
+ * \return YES if the record is a company; NO otherwise.
+ */
+BOOL
+absyncAbPersonIsCompany ( ABPerson *person )
+{
+  if ([[person valueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
+    return YES;
+  return NO;
+}
 
 /**
  * Returns the full name of the given person record.
