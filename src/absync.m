@@ -30,6 +30,208 @@
 #include <getopt.h>
 #include "absyncconfig.h"
 
+
+// ======================================================================
+//  STATIC FACTORY METHODS
+// ======================================================================
+
+static NSDateFormatter* CACHE_ABSYNCISODATEFORMATTER = nil;
+
+/**
+ * Returns a standard NSDateFormatter object that formats dates into
+ * ISO format (YYYY-MM-DD).
+ *
+ * \return A NSDateFormatter object for reading and writing the ISO
+ * date format.
+ */
+NSDateFormatter*
+absyncIsoDateFormatter()
+{
+  if (!CACHE_ABSYNCISODATEFORMATTER)
+    {
+      CACHE_ABSYNCISODATEFORMATTER = [[NSDateFormatter alloc]
+                                       initWithDateFormat:@"%Y-%m-%d"
+                                       allowNaturalLanguage:NO];
+    }
+  return CACHE_ABSYNCISODATEFORMATTER;
+}
+
+static NSArray* CACHE_ABSYNCABPERSONRELEVANTPROPERTIES = nil;
+
+/**
+ * Returns an array with a list of person record properties which are
+ * relevant for reading and writing to XML file.
+ *
+ * \return A NSArray* of relevant property names.
+ */
+NSArray*
+absyncAbPersonRelevantProperties()
+{
+  if (!CACHE_ABSYNCABPERSONRELEVANTPROPERTIES)
+    {
+      CACHE_ABSYNCABPERSONRELEVANTPROPERTIES = [NSArray arrayWithObjects:
+                                                          kABTitleProperty,
+                                                        kABFirstNameProperty,
+                                                        kABFirstNamePhoneticProperty,
+                                                        kABMiddleNameProperty,
+                                                        kABMiddleNamePhoneticProperty,
+                                                        kABLastNameProperty,
+                                                        kABLastNamePhoneticProperty,
+                                                        kABSuffixProperty,
+                                                        kABNicknameProperty,
+                                                        kABMaidenNameProperty,
+                                                        kABJobTitleProperty,
+                                                        kABBirthdayProperty,
+                                                        //kABBirthdayComponentsProperty, //OS X 10.7+ only
+                                                        kABOrganizationProperty,
+                                                        //kABHomePageProperty, // deprecated OS X 10.4+
+                                                        kABURLsProperty,
+                                                        kABCalendarURIsProperty,
+                                                        kABEmailProperty,
+                                                        kABAddressProperty,
+                                                        kABOtherDatesProperty,
+                                                        //kABOtherDateComponentsProperty, //OS X 10.7+ only
+                                                        kABRelatedNamesProperty,
+                                                        kABDepartmentProperty,
+                                                        kABPersonFlags,
+                                                        kABPhoneProperty,
+                                                        //kABInstantMessageProperty, //OS X 10.7+ only
+                                                        kABAIMInstantProperty,
+                                                        kABJabberInstantProperty,
+                                                        kABMSNInstantProperty,
+                                                        kABYahooInstantProperty,
+                                                        kABICQInstantProperty,
+                                                        kABNoteProperty,
+                                                        //kABSocialProfileProperty, //OS X 10.7+ only
+                                                        nil];
+      [CACHE_ABSYNCABPERSONRELEVANTPROPERTIES retain];
+    }
+  return CACHE_ABSYNCABPERSONRELEVANTPROPERTIES;
+}
+
+static NSDictionary *CACHE_ABSYNCPERSONPROPERTYWEIGHTING = nil;
+static const NSInteger PERSON_MATCHING_SCORE_THRESHOLD = 4;
+
+/**
+ * Returns a dictionary which maps person properties to their
+ * corresponding person matching scores.
+ *
+ * \return An NSDictionary object with property names mapping to
+ * scores.
+ */
+NSDictionary*
+absyncPersonPropertyWeighting()
+{
+  if (!CACHE_ABSYNCPERSONPROPERTYWEIGHTING)
+    {
+      CACHE_ABSYNCPERSONPROPERTYWEIGHTING = [NSDictionary dictionaryWithObjectsAndKeys:
+                                                            [NSNumber numberWithInteger:2], kABFirstNameProperty,
+                                                          [NSNumber numberWithInteger:1], kABMiddleNameProperty,
+                                                          [NSNumber numberWithInteger:3], kABLastNameProperty,
+                                                          [NSNumber numberWithInteger:5],  kABOrganizationProperty, nil];
+      [CACHE_ABSYNCPERSONPROPERTYWEIGHTING retain];
+    }
+  return CACHE_ABSYNCPERSONPROPERTYWEIGHTING;
+}
+
+
+// ======================================================================
+//  MULTIVALUE STRUCTURE ENTRIES
+// ======================================================================
+
+/**
+ * An Objective-C object representing an entry in an Address Book
+ * MultiValue structure.
+ *
+ * These entries have both a NSString label and an index (since there
+ * may be multiple entries with the same label).
+ */
+@interface MultiValueEntry : NSObject
+{
+  NSString *label;
+  int       index;
+}
+- (id)initWithLabel:(NSString*)l index:(int)i;
++ (MultiValueEntry*)entryWithLabel:(NSString*)l index:(int)i;
+@property (retain) NSString* label;
+@property          int       index;
+@end
+
+@implementation MultiValueEntry
+@synthesize label;
+@synthesize index;
+
+/**
+ * Initializer.
+ *
+ * \param l the label to store
+ * \param i the index to store
+ * \return Self.
+ */
+- (id)initWithLabel:(NSString*)l
+              index:(int)i
+{
+  self = [super init];
+  if (self) {
+    label   = [l retain];
+    index = i;
+  }
+  return self;
+}
+
+/**
+ * Deconstructor.
+ */
+- (void)dealloc
+{
+  [label release];
+  [super dealloc];
+}
+
+/**
+ * Returns a new MultiValueEntry with the given label and index values.
+ *
+ * \param l the label to store
+ * \param i the index to store
+ * \return Self.
+ */
++ (MultiValueEntry*)entryWithLabel:(NSString*)l
+                             index:(int)i
+{
+  MultiValueEntry *entry = [[MultiValueEntry alloc] initWithLabel:l index:i];
+  return [entry autorelease];
+}
+
+/**
+ * A comparator function to sort MultiValueEntry objects
+ * alphabetically by label, followed by numerically by index.
+ *
+ * \param otherObject the other object to compare to this one
+ * \return -1 if this object is less than otherObject; +1 if this
+ * object is greater; 0 if they are equal.
+ */
+- (NSComparisonResult)compare:(MultiValueEntry*)otherObject
+{
+  NSComparisonResult r = [[self label] compare:[otherObject label]];
+  if (r == NSOrderedSame)
+    {
+      if ([self index] < [otherObject index])
+        return -1;
+      else if ([otherObject index] < [self index])
+        return 1;
+      else
+        return 0;
+    }
+  else
+    return r;
+}
+@end
+
+
+// ======================================================================
+//  XML PERSON RECORDS
+// ======================================================================
+
 /**
  * An Objective-C object which represents a person record loaded from
  * an XML file.
@@ -59,7 +261,7 @@
  * Constructor.
  *
  * \param element the XML element representing a person record
- * \return \Self.
+ * \return Self.
  */
 - (id)initWithXMLElement:(NSXMLElement*)element
 {
@@ -263,6 +465,142 @@
 }
 @end
 
+
+// ======================================================================
+//  PERSON MATCHING
+// ======================================================================
+
+/**
+ * An Objective-C object representing a match on a property of a
+ * person record in the Address Book.
+ *
+ * Some properties are useful for matching up person records (e.g.,
+ * first name, last name).  These are stored in this object as
+ * property (the name of the property) and value (the value of the
+ * property).  Further, this object stores a weighting parameter,
+ * indicating how useful a match on the given property is.
+ */
+@interface PersonPropertyMatch : NSObject
+{
+  NSString *property;
+  NSString *value;
+  NSInteger weighting;
+}
+- (id)initWithProperty:(NSString*)n value:(NSString*)v weighting:(NSInteger)w;
++ (PersonPropertyMatch*)propertyMatchWithProperty:(NSString*)n value:(NSString*)v weighting:(NSInteger)w;
+- (NSInteger)scoreAbPerson:(ABPerson*)abPerson;
+- (NSInteger)scoreXmlPerson:(XmlPersonRecord*)xmlPerson;
+@end
+
+@implementation PersonPropertyMatch
+/**
+ * Initializer.
+ *
+ * \param n the name of the property to match
+ * \param v the value of the property to match
+ * \param w the score for a match on this property
+ * \return Self.
+ */
+- (id)initWithProperty:(NSString*)n
+                 value:(NSString*)v
+             weighting:(NSInteger)w
+{
+  self = [super init];
+  if (self) {
+    property  = [n retain];
+    value     = [v retain];
+    weighting = w;
+  }
+  return self;
+}
+
+/**
+ * Creates a new autoreleased PersonPropertyMatch object with the
+ * given parameters.
+ *
+ * \param n the name of the property to match
+ * \param v the value of the property to match
+ * \param w the score for a match on this property
+ * \return Self.
+ */
++ (PersonPropertyMatch*)propertyMatchWithProperty:(NSString*)n
+                                            value:(NSString*)v
+                                        weighting:(NSInteger)w
+{
+  PersonPropertyMatch *val = [[PersonPropertyMatch alloc] initWithProperty:n value:v weighting:w];
+  [val autorelease];
+  return val;
+}
+
+/**
+ * Deconstructor.
+ */
+- (void)dealloc
+{
+  [property release];
+  [value release];
+  [super dealloc];
+}
+
+/**
+ * Returns a string description of this object for debugging.
+ *
+ * \return An NSString object representing this object.
+ */
+- (NSString *)description
+{
+  return [NSString stringWithFormat:@"<PersonPropertyMatch property=\"%@\" value=\"%@\" weighting=%d>",
+                   property, value, weighting];
+}
+
+/**
+ * Scores the given Address Book person record for goodness of fit
+ * against this property.
+ *
+ * \param abPerson the person record to score
+ * \return An integer representing the given person's score on this
+ * property (bigger scores are better).
+ */
+- (NSInteger)scoreAbPerson:(ABPerson*)abPerson
+{
+  NSString *abPersonValue = [NSString string];
+  if ([abPerson valueForProperty:property])
+    {
+      abPersonValue = [abPerson valueForProperty:property];
+    }
+  if ([abPersonValue isEqualToString:value])
+    return weighting;
+  else
+    return 0;
+}
+
+/**
+ * Scores the given XML file person record for goodness of fit against
+ * this property.
+ *
+ * \param xmlPerson the person record to score
+ * \return An integer representing the given person's score on this
+ * property (bigger scores are better).
+ */
+- (NSInteger)scoreXmlPerson:(XmlPersonRecord*)xmlPerson
+{
+  NSString *xmlPersonValue  = [NSString string];
+  if ([xmlPerson getLastStringValueForProperty:property])
+    {
+      xmlPersonValue = [xmlPerson getLastStringValueForProperty:property];
+    }
+  if ([xmlPersonValue isEqualToString:value])
+    return weighting;
+  else
+    return 0;
+}
+@end
+
+
+// ======================================================================
+//  PROGRAM FUNCTIONS
+// ======================================================================
+
 /**
  * Tests whether the given address book record represents a company.
  *
@@ -335,168 +673,6 @@ absyncAbPersonSort ( ABPerson *person1,
   return [absyncAbPersonFullName(person1) compare:absyncAbPersonFullName(person2)];
 }
 
-static NSDateFormatter* CACHE_ABSYNCISODATEFORMATTER = nil;
-
-/**
- * Returns a standard NSDateFormatter object that formats dates into
- * ISO format (YYYY-MM-DD).
- *
- * \return A NSDateFormatter object for reading and writing the ISO
- * date format.
- */
-NSDateFormatter*
-absyncIsoDateFormatter()
-{
-  if (!CACHE_ABSYNCISODATEFORMATTER)
-    {
-      CACHE_ABSYNCISODATEFORMATTER = [[NSDateFormatter alloc]
-                                       initWithDateFormat:@"%Y-%m-%d"
-                                       allowNaturalLanguage:NO];
-    }
-  return CACHE_ABSYNCISODATEFORMATTER;
-}
-
-/**
- * An Objective-C object representing a key in an Address Book
- * MultiValue structure.
- *
- * These entries have both a "label" (here called key) and an index
- * (since there may be multiple entries with the same label).
- */
-@interface MultiStringItem : NSObject
-{
-  NSString *key;
-  int       index;
-}
-- (id)initWithKey:(NSString*)k index:(int)i;
-+ (MultiStringItem*)itemWithKey:(NSString*)k index:(int)i;
-@property (retain) NSString* key;
-@property          int       index;
-@end
-
-@implementation MultiStringItem
-@synthesize key;
-@synthesize index;
-
-/**
- * Initializer.
- *
- * \param k the key to store
- * \param i the index to store
- * \return Self.
- */
-- (id)initWithKey:(NSString*)k
-            index:(int)i
-{
-  self = [super init];
-  if (self) {
-    key   = [k retain];
-    index = i;
-  }
-  return self;
-}
-
-/**
- * Deconstructor.
- */
-- (void)dealloc
-{
-  [key release];
-  [super dealloc];
-}
-
-/**
- * Returns a new MultiStringItem with the given key and index values.
- *
- * \param k the key to store
- * \param i the index to store
- * \return Self.
- */
-+ (MultiStringItem*)itemWithKey:(NSString*)k
-                          index:(int)i
-{
-  MultiStringItem *item = [[MultiStringItem alloc] initWithKey:k index:i];
-  return [item autorelease];
-}
-
-/**
- * A comparator function to sort MultiStringItem objects
- * alphabetically by label, followed by numerically by index.
- *
- * \param otherObject the other object to compare to this one
- * \return -1 if this object is less than otherObject; +1 if this
- * object is greater; 0 if they are equal.
- */
-- (NSComparisonResult)compare:(MultiStringItem*)otherObject
-{
-  NSComparisonResult r = [[self key] compare:[otherObject key]];
-  if (r == NSOrderedSame)
-    {
-      if ([self index] < [otherObject index])
-        return -1;
-      else if ([otherObject index] < [self index])
-        return 1;
-      else
-        return 0;
-    }
-  else
-    return r;
-}
-@end
-
-static NSArray* CACHE_ABSYNCABPERSONRELEVANTPROPERTIES = nil;
-
-/**
- * Returns an array with a list of person record properties which are
- * relevant for reading and writing to XML file.
- *
- * \return A NSArray* of relevant property names.
- */
-NSArray*
-absyncAbPersonRelevantProperties()
-{
-  if (!CACHE_ABSYNCABPERSONRELEVANTPROPERTIES)
-    {
-      CACHE_ABSYNCABPERSONRELEVANTPROPERTIES = [NSArray arrayWithObjects:
-                                                          kABTitleProperty,
-                                                        kABFirstNameProperty,
-                                                        kABFirstNamePhoneticProperty,
-                                                        kABMiddleNameProperty,
-                                                        kABMiddleNamePhoneticProperty,
-                                                        kABLastNameProperty,
-                                                        kABLastNamePhoneticProperty,
-                                                        kABSuffixProperty,
-                                                        kABNicknameProperty,
-                                                        kABMaidenNameProperty,
-                                                        kABJobTitleProperty,
-                                                        kABBirthdayProperty,
-                                                        //kABBirthdayComponentsProperty, //OS X 10.7+ only
-                                                        kABOrganizationProperty,
-                                                        //kABHomePageProperty, // deprecated OS X 10.4+
-                                                        kABURLsProperty,
-                                                        kABCalendarURIsProperty,
-                                                        kABEmailProperty,
-                                                        kABAddressProperty,
-                                                        kABOtherDatesProperty,
-                                                        //kABOtherDateComponentsProperty, //OS X 10.7+ only
-                                                        kABRelatedNamesProperty,
-                                                        kABDepartmentProperty,
-                                                        kABPersonFlags,
-                                                        kABPhoneProperty,
-                                                        //kABInstantMessageProperty, //OS X 10.7+ only
-                                                        kABAIMInstantProperty,
-                                                        kABJabberInstantProperty,
-                                                        kABMSNInstantProperty,
-                                                        kABYahooInstantProperty,
-                                                        kABICQInstantProperty,
-                                                        kABNoteProperty,
-                                                        //kABSocialProfileProperty, //OS X 10.7+ only
-                                                        nil];
-      [CACHE_ABSYNCABPERSONRELEVANTPROPERTIES retain];
-    }
-  return CACHE_ABSYNCABPERSONRELEVANTPROPERTIES;
-}
-
 /**
  * Builds an XML element representing the given Address Book person record.
  *
@@ -553,15 +729,15 @@ absyncAbPersonBuildXml ( ABPerson *person,
             }
           else if ([value isKindOfClass:[ABMultiValue class]])
             {
-              // sort keys of the multivalue
+              // sort entries of the multivalue
               // NYI: store identifiers (UUIDs), primaryIdentifier?
-              NSMutableArray *sortedKeys = [NSMutableArray arrayWithCapacity:0];
+              NSMutableArray *sortedEntries = [NSMutableArray arrayWithCapacity:0];
               int i = 0;
               for (; i < [value count]; i++)
                 {
-                  [sortedKeys addObject:[MultiStringItem itemWithKey:[value labelAtIndex:i] index:i]];
+                  [sortedEntries addObject:[MultiValueEntry entryWithLabel:[value labelAtIndex:i] index:i]];
                 }
-              [sortedKeys sortUsingSelector:@selector(compare:)];
+              [sortedEntries sortUsingSelector:@selector(compare:)];
 
               // multistring
               if ([value propertyType] == kABMultiStringProperty)
@@ -571,13 +747,13 @@ absyncAbPersonBuildXml ( ABPerson *person,
                                                                      attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
                                                                                                                       stringValue:@"multistring"], nil]];
                   [xmlPerson addChild:xmlValue];
-                  for (MultiStringItem *item in sortedKeys)
+                  for (MultiValueEntry *entry in sortedEntries)
                     {
                       NSXMLElement *xmlItem =
                         (NSXMLElement*)[NSXMLNode elementWithName:@"item"
                                                   children:[NSArray arrayWithObjects:
-                                                                      [NSXMLNode elementWithName:@"key" stringValue:[item key]],
-                                                                    [NSXMLNode elementWithName:@"value" stringValue:[value valueAtIndex:[item index]]],
+                                                                      [NSXMLNode elementWithName:@"key" stringValue:[entry label]],
+                                                                    [NSXMLNode elementWithName:@"value" stringValue:[value valueAtIndex:[entry index]]],
                                                                     nil]
                                                   attributes:nil];
                       [xmlValue addChild:xmlItem];
@@ -591,14 +767,14 @@ absyncAbPersonBuildXml ( ABPerson *person,
                                                                      attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
                                                                                                                       stringValue:@"multidate"], nil]];
                   [xmlPerson addChild:xmlValue];
-                  for (MultiStringItem *item in sortedKeys)
+                  for (MultiValueEntry *entry in sortedEntries)
                     {
                       NSXMLElement *xmlItem =
                         (NSXMLElement*)[NSXMLNode elementWithName:@"item"
                                                   children:[NSArray arrayWithObjects:
-                                                                      [NSXMLNode elementWithName:@"key" stringValue:[item key]],
+                                                                      [NSXMLNode elementWithName:@"key" stringValue:[entry label]],
                                                                     [NSXMLNode elementWithName:@"value" stringValue:
-                                                                                 [absyncIsoDateFormatter() stringFromDate:[value valueAtIndex:[item index]]]],
+                                                                                 [absyncIsoDateFormatter() stringFromDate:[value valueAtIndex:[entry index]]]],
                                                                     nil]
                                                   attributes:nil];
                       [xmlValue addChild:xmlItem];
@@ -612,11 +788,11 @@ absyncAbPersonBuildXml ( ABPerson *person,
                                                                      attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
                                                                                                                       stringValue:@"multidict"], nil]];
                   [xmlPerson addChild:xmlValue];
-                  for (MultiStringItem *item in sortedKeys)
+                  for (MultiValueEntry *entry in sortedEntries)
                     {
                       NSXMLElement *xmlItem = (NSXMLElement*)[NSXMLNode elementWithName:@"item"];
-                      [xmlItem addChild:[NSXMLNode elementWithName:@"key" stringValue:[item key]]];
-                      NSDictionary *dict            = [value valueAtIndex:[item index]];
+                      [xmlItem addChild:[NSXMLNode elementWithName:@"key" stringValue:[entry label]]];
+                      NSDictionary *dict            = [value valueAtIndex:[entry index]];
                       NSArray      *sortedDictKeys  = [[dict allKeys] sortedArrayUsingSelector:@selector(compare:)];
                       NSXMLElement *xmlDict         = (NSXMLElement*)[NSXMLNode elementWithName:@"Dict"];
                       for (NSString *dictKey in sortedDictKeys)
@@ -794,156 +970,6 @@ absyncDeleteAddressBook()
 
   [abook save];
   [abook release];
-}
-
-/**
- * An Objective-C object representing a match on a property of a
- * person record in the Address Book.
- *
- * Some properties are useful for matching up person records (e.g.,
- * first name, last name).  These are stored in this object as
- * property (the name of the property) and value (the value of the
- * property).  Further, this object stores a weighting parameter,
- * indicating how useful a match on the given property is.
- */
-@interface PersonPropertyMatch : NSObject
-{
-  NSString *property;
-  NSString *value;
-  NSInteger weighting;
-}
-- (id)initWithProperty:(NSString*)n value:(NSString*)v weighting:(NSInteger)w;
-+ (PersonPropertyMatch*)propertyMatchWithProperty:(NSString*)n value:(NSString*)v weighting:(NSInteger)w;
-- (NSInteger)scoreAbPerson:(ABPerson*)abPerson;
-- (NSInteger)scoreXmlPerson:(XmlPersonRecord*)xmlPerson;
-@end
-
-@implementation PersonPropertyMatch
-/**
- * Initializer.
- *
- * \param n the name of the property to match
- * \param v the value of the property to match
- * \param w the score for a match on this property
- * \return Self.
- */
-- (id)initWithProperty:(NSString*)n
-                 value:(NSString*)v
-             weighting:(NSInteger)w
-{
-  self = [super init];
-  if (self) {
-    property = [n retain];
-    value = [v retain];
-    weighting = w;
-  }
-  return self;
-}
-
-/**
- * Creates a new autoreleased PersonPropertyMatch object with the
- * given parameters.
- *
- * \param n the name of the property to match
- * \param v the value of the property to match
- * \param w the score for a match on this property
- * \return Self.
- */
-+ (PersonPropertyMatch*)propertyMatchWithProperty:(NSString*)n
-                                            value:(NSString*)v
-                                        weighting:(NSInteger)w
-{
-  PersonPropertyMatch *val = [[PersonPropertyMatch alloc] initWithProperty:n value:v weighting:w];
-  [val autorelease];
-  return val;
-}
-
-/**
- * Deconstructor.
- */
-- (void)dealloc
-{
-  [property release];
-  [value release];
-  [super dealloc];
-}
-
-/**
- * Returns a string description of this object for debugging.
- *
- * \return An NSString object representing this object.
- */
-- (NSString *)description
-{
-  return [NSString stringWithFormat:@"<PersonPropertyMatch property=\"%@\" value=\"%@\" weighting=%d>", property, value, weighting];
-}
-
-/**
- * Scores the given Address Book person record for goodness of fit
- * against this property.
- *
- * \param abPerson the person record to score
- * \return An integer representing the given person's score on this
- * property (bigger scores are better).
- */
-- (NSInteger)scoreAbPerson:(ABPerson*)abPerson
-{
-  NSString *abPersonValue = [NSString string];
-  if ([abPerson valueForProperty:property])
-    {
-      abPersonValue = [abPerson valueForProperty:property];
-    }
-  if ([abPersonValue isEqualToString:value])
-    return weighting;
-  else
-    return 0;
-}
-
-/**
- * Scores the given XML file person record for goodness of fit against
- * this property.
- *
- * \param xmlPerson the person record to score
- * \return An integer representing the given person's score on this
- * property (bigger scores are better).
- */
-- (NSInteger)scoreXmlPerson:(XmlPersonRecord*)xmlPerson
-{
-  NSString *xmlPersonValue  = [NSString string];
-  if ([xmlPerson getLastStringValueForProperty:property])
-    {
-      xmlPersonValue = [xmlPerson getLastStringValueForProperty:property];
-    }
-  if ([xmlPersonValue isEqualToString:value])
-    return weighting;
-  else
-    return 0;
-}
-@end
-
-static NSDictionary *CACHE_ABSYNCPERSONPROPERTYWEIGHTING = nil;
-static const NSInteger PERSON_MATCHING_SCORE_THRESHOLD = 4;
-
-/**
- * Returns a dictionary which maps person properties to their
- * corresponding person matching scores.
- *
- * \return An NSDictionary object with property names mapping to
- * scores.
- */
-NSDictionary*
-absyncPersonPropertyWeighting()
-{
-  if (!CACHE_ABSYNCPERSONPROPERTYWEIGHTING)
-    {
-      CACHE_ABSYNCPERSONPROPERTYWEIGHTING = [NSDictionary dictionaryWithObjectsAndKeys:
-                                                            [NSNumber numberWithInteger:2], kABFirstNameProperty,
-                                                          [NSNumber numberWithInteger:1], kABMiddleNameProperty,
-                                                          [NSNumber numberWithInteger:3], kABLastNameProperty,
-                                                          [NSNumber numberWithInteger:5],  kABOrganizationProperty, nil];
-      [CACHE_ABSYNCPERSONPROPERTYWEIGHTING retain];
-    }
-  return CACHE_ABSYNCPERSONPROPERTYWEIGHTING;
 }
 
 /**
