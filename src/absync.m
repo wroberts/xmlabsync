@@ -61,6 +61,8 @@ absyncAbPersonIsCompany ( ABPerson *person )
 - (id)initWithXMLElement:(NSXMLElement*)element;
 - (NSSet*)getGroups;
 - (NSArray*) getProperties:(NSArray*)properties;
+- (BOOL)isCompany;
+- (NSString*)fullName;
 - (NSArray*)getResultsForProperty:(NSString*)propertyName;
 - (id)getLastResultForProperty:(NSString*)propertyName;
 - (id)getLastStringValueForProperty:(NSString*)propertyName;
@@ -130,7 +132,7 @@ absyncAbPersonIsCompany ( ABPerson *person )
  * \return An NSArray containing NSXMLElement objects found which
  * match the names listed in the passed properties array.
  */
-- (NSArray*) getProperties:(NSArray*)properties
+- (NSArray*)getProperties:(NSArray*)properties
 {
   if (!relevantProperties)
     {
@@ -144,6 +146,61 @@ absyncAbPersonIsCompany ( ABPerson *person )
         }
     }
   return relevantProperties;
+}
+
+/**
+ * Tests whether this XML file person record represents a company.
+ *
+ * \return YES if this person record is a company; NO otherwise.
+ */
+- (BOOL)isCompany
+{
+  if ([self getLastStringValueForProperty:kABPersonFlags] &&
+      [[self getLastStringValueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
+    return YES;
+  return NO;
+}
+
+/**
+ * Returns the full name of this person record.
+ *
+ * The format used is "LastName, FirstName MiddleName".
+ *
+ * \return A NSString* containing the generated full name.
+ */
+- (NSString*)fullName
+{
+  NSString *name   = [NSString string];
+  if ([self isCompany])
+    {
+      if ([self getLastStringValueForProperty:kABOrganizationProperty])
+        {
+          name = [name stringByAppendingString:[self getLastStringValueForProperty:kABOrganizationProperty]];
+        }
+    }
+  else
+    {
+      if ([self getLastStringValueForProperty:kABLastNameProperty])
+        {
+          name = [name stringByAppendingString:[self getLastStringValueForProperty:kABLastNameProperty]];
+          name = [name stringByAppendingString:@", "];
+        }
+      if ([self getLastStringValueForProperty:kABTitleProperty])
+        {
+          name = [name stringByAppendingString:[self getLastStringValueForProperty:kABTitleProperty]];
+          name = [name stringByAppendingString:@" "];
+        }
+      if ([self getLastStringValueForProperty:kABFirstNameProperty])
+        {
+          name = [name stringByAppendingString:[self getLastStringValueForProperty:kABFirstNameProperty]];
+        }
+      if ([self getLastStringValueForProperty:kABMiddleNameProperty])
+        {
+          name = [name stringByAppendingString:@" "];
+          name = [name stringByAppendingString:[self getLastStringValueForProperty:kABMiddleNameProperty]];
+        }
+    }
+  return name;
 }
 
 /**
@@ -221,21 +278,6 @@ absyncAbPersonIsCompany ( ABPerson *person )
 @end
 
 /**
- * Tests whether the given XML file record represents a company.
- *
- * \param xmlPerson the XML file record to test
- * \return YES if the record is a company; NO otherwise.
- */
-BOOL
-absyncXmlPersonIsCompany ( XmlPersonRecord *xmlPerson )
-{
-  if ([xmlPerson getLastStringValueForProperty:kABPersonFlags] &&
-      [[xmlPerson getLastStringValueForProperty:kABPersonFlags] integerValue] & kABShowAsCompany)
-    return YES;
-  return NO;
-}
-
-/**
  * Returns the full name of the given person record.
  *
  * The format used is "LastName, FirstName MiddleName".
@@ -271,50 +313,6 @@ absyncAbPersonFullName ( ABPerson *person )
         {
           name = [name stringByAppendingString:@" "];
           name = [name stringByAppendingString:[person valueForProperty:kABMiddleNameProperty]];
-        }
-    }
-  return name;
-}
-
-/**
- * Returns the full name of the given person record.
- *
- * The format used is "LastName, FirstName MiddleName".
- *
- * \param xmlPerson the record whose name to get
- * \return A NSString* containing the generated full name.
- */
-NSString*
-absyncXmlPersonFullName ( XmlPersonRecord *xmlPerson )
-{
-  NSString *name   = [NSString string];
-  if (absyncXmlPersonIsCompany(xmlPerson))
-    {
-      if ([xmlPerson getLastStringValueForProperty:kABOrganizationProperty])
-        {
-          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABOrganizationProperty]];
-        }
-    }
-  else
-    {
-      if ([xmlPerson getLastStringValueForProperty:kABLastNameProperty])
-        {
-          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABLastNameProperty]];
-          name = [name stringByAppendingString:@", "];
-        }
-      if ([xmlPerson getLastStringValueForProperty:kABTitleProperty])
-        {
-          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABTitleProperty]];
-          name = [name stringByAppendingString:@" "];
-        }
-      if ([xmlPerson getLastStringValueForProperty:kABFirstNameProperty])
-        {
-          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABFirstNameProperty]];
-        }
-      if ([xmlPerson getLastStringValueForProperty:kABMiddleNameProperty])
-        {
-          name = [name stringByAppendingString:@" "];
-          name = [name stringByAppendingString:[xmlPerson getLastStringValueForProperty:kABMiddleNameProperty]];
         }
     }
   return name;
@@ -963,7 +961,7 @@ absyncFindMatchingAbPerson ( XmlPersonRecord *xmlPerson,
 {
   NSDictionary        *propertyWeighting  = absyncPersonPropertyWeighting();
   NSMutableDictionary *props              = [NSMutableDictionary dictionaryWithCapacity:0];
-  BOOL                 xmlPersonIsCompany = absyncXmlPersonIsCompany(xmlPerson);
+  BOOL                 xmlPersonIsCompany = [xmlPerson isCompany];
   for (NSString *propName in [propertyWeighting allKeys])
     {
       if ([propName isEqualToString:kABOrganizationProperty] != xmlPersonIsCompany)
@@ -1036,7 +1034,7 @@ absyncFindMatchingXmlPerson ( ABPerson *abPerson,
   NSXMLElement *bestCandidate  = nil;
   for (XmlPersonRecord *xmlPerson in xmlPeople)
     {
-      if (abPersonIsCompany != absyncXmlPersonIsCompany(xmlPerson))
+      if (abPersonIsCompany != [xmlPerson isCompany])
         continue;
       NSInteger score = 0;
       for (PersonPropertyMatch *properties in [props allValues])
@@ -1580,7 +1578,7 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
       else
         {
           // create a new person entry
-          printf("%s\n", [[NSString stringWithFormat:@"Creating person %@", absyncXmlPersonFullName(xmlPerson)] UTF8String]);
+          printf("%s\n", [[NSString stringWithFormat:@"Creating person %@", [xmlPerson fullName]] UTF8String]);
           abPerson = [[ABPerson alloc] initWithAddressBook:abook];
           createdPerson = YES;
         }
@@ -1600,7 +1598,7 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
                 {
                   // update the person
                   printf("%s\n", [[NSString stringWithFormat:@"Updated person %@ with %@", absyncAbPersonFullName(abPerson),
-                                            absyncXmlPersonFullName(xmlPerson)] UTF8String]);
+                                            [xmlPerson fullName]] UTF8String]);
                 }
               [abook save];
             }
@@ -1636,7 +1634,7 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
       if (!abMe)
         {
           printf("%s\n", [[NSString stringWithFormat:@"WARNING: could not find matching record for person %@",
-                                    absyncXmlPersonFullName(xmlMe)] UTF8String]);
+                                    [xmlMe fullName]] UTF8String]);
           return;
         }
       if ([abook me] != abMe && (update_flag || ![abook me]))
