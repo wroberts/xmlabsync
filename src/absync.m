@@ -253,7 +253,7 @@ absyncPersonPropertyWeighting()
 - (NSString*)fullName;
 - (NSArray*)getResultsForProperty:(NSString*)propertyName;
 - (id)getLastResultForProperty:(NSString*)propertyName;
-- (id)getLastStringValueForProperty:(NSString*)propertyName;
+- (NSString*)getLastStringValueForProperty:(NSString*)propertyName;
 @end
 
 @implementation XmlPersonRecord
@@ -454,7 +454,7 @@ absyncPersonPropertyWeighting()
  * \return Returns the string value of the last element in the NSArray
  * object containing the result of looking up the property.
  */
-- (id)getLastStringValueForProperty:(NSString*)propertyName
+- (NSString*)getLastStringValueForProperty:(NSString*)propertyName
 {
   id value = [self getLastResultForProperty:propertyName];
   if (value)
