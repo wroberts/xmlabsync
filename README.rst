@@ -67,6 +67,9 @@ Syntax
 Known Issues
 ============
 
+* If the user sets the image data for a person record using the
+  Address Book.app application, ``absync`` will not be able to delete
+  the image.
 * No localization.
 * absync could try harder to preserve UUID information when
   ``replace``-ing the Address Book.  My thinking is that the average

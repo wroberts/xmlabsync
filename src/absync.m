@@ -1529,6 +1529,17 @@ absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
           changedRecord = YES;
         }
     }
+  // NYI BUG: if the user sets the image data for a person record
+  // using the Address Book.app application, the following code will
+  // not delete the image data for that person record.  On my system,
+  // the image data is stored in
+  // ~/Library/Application Support/AddressBook/Images
+  // Presumably, the file needs to be removed to delete the image.
+  else if (delete_flag && [abPerson imageData])
+    {
+      [abPerson setImageData:nil];
+      changedRecord = YES;
+    }
   return changedRecord;
 }
 
