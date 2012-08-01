@@ -29,6 +29,7 @@
 #import <AddressBook/AddressBook.h>
 #include <getopt.h>
 #include "absyncconfig.h"
+#include "google/GTMStringEncoding.h"
 
 
 // ======================================================================
@@ -690,6 +691,15 @@ absyncAbPersonBuildXml ( ABPerson *person,
   if (isMe)
     {
       [xmlPerson addChild:[NSXMLNode elementWithName:@"IsMe" stringValue:@"1"]];
+    }
+  // image data
+  if ([person imageData])
+    {
+      NSString *base64ImageData = [[GTMStringEncoding rfc4648Base64StringEncoding] encode:[person imageData]];
+      [xmlPerson addChild:[NSXMLNode elementWithName:@"ImageData"
+                                     children:[NSArray arrayWithObjects: [NSXMLNode textWithStringValue:base64ImageData], nil]
+                                     attributes:[NSArray arrayWithObjects: [NSXMLNode attributeWithName:@"type"
+                                                                                      stringValue:@"base64"], nil]]];
     }
   // person groups
   NSMutableArray *sortedGroups = [NSMutableArray arrayWithCapacity:0];
@@ -1507,6 +1517,16 @@ absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
             {
               [abPerson removeValueForProperty:propName];
             }
+        }
+    }
+  // image data
+  if ([xmlPerson getLastStringValueForProperty:@"ImageData"])
+    {
+      NSData *imageData = [[GTMStringEncoding rfc4648Base64StringEncoding] decode:[xmlPerson getLastStringValueForProperty:@"ImageData"]];
+      if (![abPerson imageData] || ![[abPerson imageData] isEqualToData:imageData])
+        {
+          [abPerson setImageData:imageData];
+          changedRecord = YES;
         }
     }
   return changedRecord;

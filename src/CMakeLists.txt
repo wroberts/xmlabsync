@@ -18,11 +18,12 @@ configure_file (
 
 # Add the binary tree to the search path for include files so that we
 # will find ${PROCESS_NAME}config.h
-include_directories("${PROJECT_BINARY_DIR}")
+include_directories(google
+                    "${PROJECT_BINARY_DIR}")
 
 set(PROCESS_SRCS
   absync.m
-  # more sources here
+  google/GTMStringEncoding.m
   CMakeLists.txt
   )
 

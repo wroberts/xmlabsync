@@ -67,7 +67,6 @@ Syntax
 Known Issues
 ============
 
-* Does not currently import/export image data for person records.
 * No localization.
 * absync could try harder to preserve UUID information when
   ``replace``-ing the Address Book.  My thinking is that the average
