@@ -86,8 +86,8 @@ Requirements
 * CMake 2.6 or later.
 * Apple Developer Tools
 
-    * Under 10.7+, you may also need to install the Command Line Tools
-      (in XCode's Preferences Window, Downloads Tab > Components)
+  * Under 10.7+, you may also need to install the Command Line Tools
+    (in XCode's Preferences Window, Downloads Tab > Components)
 
 Building
 ========
