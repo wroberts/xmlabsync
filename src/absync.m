@@ -882,10 +882,10 @@ void
 printHelp()
 {
   printVersion();
-  printf("Mac OS X Adddress Book Synchronization\n");
+  printf("Mac OS X Address Book Synchronization\n");
   printf("Copyright (c) 2012 Will Roberts\n");
   printf("\n");
-  printf("This is a utility to export the Mac OS X Adddress Book as an XML file,\n");
+  printf("This is a utility to export the Mac OS X Address Book as an XML file,\n");
   printf("or to read an XML file in, modifying the Address Book.\n");
   printf("\n");
   printf("Syntax:\n");

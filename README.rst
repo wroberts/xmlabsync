@@ -21,7 +21,7 @@ The process would look roughly like this::
     git commit -m "Autocommit Address Book" abook.xml
     git fetch
     # merge local abook.xml with remote abook.xml
-    git merge origin/upsteam
+    git merge origin/upstream
     git push
     # integrate updated information from the XML to the system Address Book
     absync -r abook.xml
@@ -36,10 +36,10 @@ Syntax
 ::
 
     absync Version 1.0
-    Mac OS X Adddress Book Synchronization
+    Mac OS X Address Book Synchronization
     Copyright (c) 2012 Will Roberts
 
-    This is a utility to export the Mac OS X Adddress Book as an XML file,
+    This is a utility to export the Mac OS X Address Book as an XML file,
     or to read an XML file in, modifying the Address Book.
 
     Syntax:
