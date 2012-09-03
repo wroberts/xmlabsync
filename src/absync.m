@@ -655,7 +655,6 @@ absyncPersonPropertyWeighting()
       // easily be made faster by iterating through the children of
       // xmlElement.  Profiling says this won't make things much
       // faster tho.
-      id       value = nil;
       NSError *err   = nil;
       NSArray *nodes = [xmlElement nodesForXPath:[NSString stringWithFormat:@"./%@", propertyName]
                                    error:&err];
@@ -1071,8 +1070,8 @@ absyncFindMatchingXmlPerson ( ABPerson *abPerson,
              forKey:propName];
     }
 
-  NSInteger     bestScore      = PERSON_MATCHING_SCORE_THRESHOLD;
-  NSXMLElement *bestCandidate  = nil;
+  NSInteger        bestScore     = PERSON_MATCHING_SCORE_THRESHOLD;
+  XmlPersonRecord *bestCandidate = nil;
   for (XmlPersonRecord *xmlPerson in xmlPeople)
     {
       if (abPersonIsCompany != [xmlPerson isCompany])
@@ -1084,7 +1083,7 @@ absyncFindMatchingXmlPerson ( ABPerson *abPerson,
         }
       if (bestScore < score)
         {
-          bestScore = score;
+          bestScore     = score;
           bestCandidate = xmlPerson;
         }
     }
@@ -1245,10 +1244,10 @@ absyncInjectXmlGroups ( NSXMLDocument *xmldoc,
       for (ABGroup *group in [abook groups])
         {
           // if group is not in xml document
-          if (![groupSet member:[group name]])
+          if (![groupSet member:[group valueForProperty:kABGroupNameProperty]])
             {
               // delete it from the address book
-              printf("%s\n", [[NSString stringWithFormat:@"Deleting group %@", [group name]] UTF8String]);
+              printf("%s\n", [[NSString stringWithFormat:@"Deleting group %@", [group valueForProperty:kABGroupNameProperty]] UTF8String]);
               // NOTE: we do not have to remove people from a group
               // before deleting it
               [abook removeRecord:group];
@@ -1359,9 +1358,9 @@ absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
                         BOOL             delete_flag )
 {
   // inject properties
-  BOOL            changedRecord       = NO;
-  NSArray        *relevantProperties  = absyncAbPersonRelevantProperties();
-  NSMutableArray *properties          = [xmlPerson getProperties:relevantProperties];
+  BOOL     changedRecord       = NO;
+  NSArray *relevantProperties  = absyncAbPersonRelevantProperties();
+  NSArray *properties          = [xmlPerson getProperties:relevantProperties];
   // set relevant properties
   for (NSXMLElement *prop in properties)
     {

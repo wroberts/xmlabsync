@@ -78,7 +78,7 @@ enum {
 }
 
 GTM_INLINE int lcm(int a, int b) {
-  for (int aa = a, bb = b;;) {
+  int aa = a, bb = b; for (;;) {
     if (aa == bb)
       return aa;
     else if (aa < bb)
@@ -109,7 +109,7 @@ GTM_INLINE int lcm(int a, int b) {
     }
 
     memset(reverseCharMap_, kUnknownChar, sizeof(reverseCharMap_));
-    for (unsigned int i = 0; i < length; i++) {
+    unsigned int i = 0; for (; i < length; i++) {
       if (reverseCharMap_[(int)charMap_[i]] != kUnknownChar) {
         _GTMDevLog(@"Duplicate character at pos %d", i);
         [self release];
@@ -118,7 +118,7 @@ GTM_INLINE int lcm(int a, int b) {
       reverseCharMap_[(int)charMap_[i]] = i;
     }
 
-    for (NSUInteger i = 1; i < length; i <<= 1)
+    NSUInteger ui = 1; for (; ui < length; ui <<= 1)
       shift_++;
     mask_ = (1 << shift_) - 1;
     padLen_ = lcm(8, shift_) / shift_;
@@ -241,7 +241,7 @@ GTM_INLINE int lcm(int a, int b) {
   int buffer = 0;
   int bitsLeft = 0;
   BOOL expectPad = NO;
-  for (NSUInteger i = 0; i < inLen; i++) {
+  NSUInteger i = 0; for (; i < inLen; i++) {
     int val = reverseCharMap_[(int)inBuf[i]];
     switch (val) {
       case kIgnoreChar:
