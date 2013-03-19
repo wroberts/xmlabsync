@@ -1,8 +1,8 @@
-all : build/Debug/absync
+all : build/Debug/xmlabsync
 
-build/Debug/absync : build/absync.xcodeproj/
+build/Debug/xmlabsync : build/xmlabsync.xcodeproj/
 	cd build && xcodebuild
 
-build/absync.xcodeproj/ : src/CMakeLists.txt
+build/xmlabsync.xcodeproj/ : src/CMakeLists.txt
 	mkdir -p build
 	cd build && cmake -G Xcode ../src

@@ -1,3 +1,0 @@
-// the configured options and settings for absync
-#define absync_VERSION_MAJOR @absync_VERSION_MAJOR@
-#define absync_VERSION_MINOR @absync_VERSION_MINOR@

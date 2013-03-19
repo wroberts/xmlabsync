@@ -1,5 +1,5 @@
 /**
- * absync
+ * xmlabsync
  * Mac OS X Address Book Synchronization
  *
  * Copyright (C) 2012 Will Roberts <wildwilhelm@gmail.com>
@@ -28,7 +28,7 @@
 #import <Foundation/Foundation.h>
 #import <AddressBook/AddressBook.h>
 #include <getopt.h>
-#include "absyncconfig.h"
+#include "xmlabsyncconfig.h"
 #include "google/GTMStringEncoding.h"
 
 
@@ -36,7 +36,7 @@
 //  STATIC FACTORY METHODS
 // ======================================================================
 
-static NSDateFormatter* CACHE_ABSYNCISODATEFORMATTER = nil;
+static NSDateFormatter* CACHE_XMLABSYNCISODATEFORMATTER = nil;
 
 /**
  * Returns a standard NSDateFormatter object that formats dates into
@@ -46,18 +46,18 @@ static NSDateFormatter* CACHE_ABSYNCISODATEFORMATTER = nil;
  * date format.
  */
 NSDateFormatter*
-absyncIsoDateFormatter()
+xmlabsyncIsoDateFormatter()
 {
-  if (!CACHE_ABSYNCISODATEFORMATTER)
+  if (!CACHE_XMLABSYNCISODATEFORMATTER)
     {
-      CACHE_ABSYNCISODATEFORMATTER = [[NSDateFormatter alloc]
+      CACHE_XMLABSYNCISODATEFORMATTER = [[NSDateFormatter alloc]
                                        initWithDateFormat:@"%Y-%m-%d"
                                        allowNaturalLanguage:NO];
     }
-  return CACHE_ABSYNCISODATEFORMATTER;
+  return CACHE_XMLABSYNCISODATEFORMATTER;
 }
 
-static NSArray* CACHE_ABSYNCABPERSONRELEVANTPROPERTIES = nil;
+static NSArray* CACHE_XMLABSYNCABPERSONRELEVANTPROPERTIES = nil;
 
 /**
  * Returns an array with a list of person record properties which are
@@ -66,11 +66,11 @@ static NSArray* CACHE_ABSYNCABPERSONRELEVANTPROPERTIES = nil;
  * \return A NSArray* of relevant property names.
  */
 NSArray*
-absyncAbPersonRelevantProperties()
+xmlabsyncAbPersonRelevantProperties()
 {
-  if (!CACHE_ABSYNCABPERSONRELEVANTPROPERTIES)
+  if (!CACHE_XMLABSYNCABPERSONRELEVANTPROPERTIES)
     {
-      CACHE_ABSYNCABPERSONRELEVANTPROPERTIES = [NSArray arrayWithObjects:
+      CACHE_XMLABSYNCABPERSONRELEVANTPROPERTIES = [NSArray arrayWithObjects:
                                                           kABTitleProperty,
                                                         kABFirstNameProperty,
                                                         kABFirstNamePhoneticProperty,
@@ -105,12 +105,12 @@ absyncAbPersonRelevantProperties()
                                                         kABNoteProperty,
                                                         //kABSocialProfileProperty, //OS X 10.7+ only
                                                         nil];
-      [CACHE_ABSYNCABPERSONRELEVANTPROPERTIES retain];
+      [CACHE_XMLABSYNCABPERSONRELEVANTPROPERTIES retain];
     }
-  return CACHE_ABSYNCABPERSONRELEVANTPROPERTIES;
+  return CACHE_XMLABSYNCABPERSONRELEVANTPROPERTIES;
 }
 
-static NSDictionary *CACHE_ABSYNCPERSONPROPERTYWEIGHTING = nil;
+static NSDictionary *CACHE_XMLABSYNCPERSONPROPERTYWEIGHTING = nil;
 static const NSInteger PERSON_MATCHING_SCORE_THRESHOLD = 4;
 
 /**
@@ -121,18 +121,18 @@ static const NSInteger PERSON_MATCHING_SCORE_THRESHOLD = 4;
  * scores.
  */
 NSDictionary*
-absyncPersonPropertyWeighting()
+xmlabsyncPersonPropertyWeighting()
 {
-  if (!CACHE_ABSYNCPERSONPROPERTYWEIGHTING)
+  if (!CACHE_XMLABSYNCPERSONPROPERTYWEIGHTING)
     {
-      CACHE_ABSYNCPERSONPROPERTYWEIGHTING = [NSDictionary dictionaryWithObjectsAndKeys:
+      CACHE_XMLABSYNCPERSONPROPERTYWEIGHTING = [NSDictionary dictionaryWithObjectsAndKeys:
                                                             [NSNumber numberWithInteger:2], kABFirstNameProperty,
                                                           [NSNumber numberWithInteger:1], kABMiddleNameProperty,
                                                           [NSNumber numberWithInteger:3], kABLastNameProperty,
                                                           [NSNumber numberWithInteger:5],  kABOrganizationProperty, nil];
-      [CACHE_ABSYNCPERSONPROPERTYWEIGHTING retain];
+      [CACHE_XMLABSYNCPERSONPROPERTYWEIGHTING retain];
     }
-  return CACHE_ABSYNCPERSONPROPERTYWEIGHTING;
+  return CACHE_XMLABSYNCPERSONPROPERTYWEIGHTING;
 }
 
 
@@ -234,17 +234,17 @@ absyncPersonPropertyWeighting()
 // ======================================================================
 
 /**
- * A category on the ABPerson class to enable some absync-specific
+ * A category on the ABPerson class to enable some xmlabsync-specific
  * functionality to be associated directly with the class.
  */
-@interface ABPerson (absync)
+@interface ABPerson (xmlabsync)
 - (BOOL)isCompany;
 - (NSString*)fullName;
 - (NSComparisonResult)compare:(ABPerson*)otherPerson;
 - (NSXMLElement*)buildXmlIsMe:(BOOL)isMe;
 @end
 
-@implementation ABPerson (absync)
+@implementation ABPerson (xmlabsync)
 /**
  * Tests whether this address book record represents a company.
  *
@@ -316,7 +316,7 @@ absyncPersonPropertyWeighting()
  */
 - (NSXMLElement*)buildXmlIsMe:(BOOL)isMe
 {
-  NSArray      *personProperties  = absyncAbPersonRelevantProperties();
+  NSArray      *personProperties  = xmlabsyncAbPersonRelevantProperties();
   NSXMLElement *xmlPerson         = (NSXMLElement*)[NSXMLNode elementWithName:@"Person"];
   // is me?
   if (isMe)
@@ -364,7 +364,7 @@ absyncPersonPropertyWeighting()
             {
               [xmlPerson addChild:[NSXMLNode elementWithName:property
                                              children:[NSArray arrayWithObjects:
-                                                                 [NSXMLNode textWithStringValue:[absyncIsoDateFormatter() stringFromDate:value]], nil]
+                                                                 [NSXMLNode textWithStringValue:[xmlabsyncIsoDateFormatter() stringFromDate:value]], nil]
                                              attributes:[NSArray arrayWithObjects:
                                                                    [NSXMLNode attributeWithName:@"type" stringValue:@"date"], nil]]];
             }
@@ -415,7 +415,7 @@ absyncPersonPropertyWeighting()
                                                   children:[NSArray arrayWithObjects:
                                                                       [NSXMLNode elementWithName:@"key" stringValue:[entry label]],
                                                                     [NSXMLNode elementWithName:@"value" stringValue:
-                                                                                 [absyncIsoDateFormatter() stringFromDate:[value valueAtIndex:[entry index]]]],
+                                                                                 [xmlabsyncIsoDateFormatter() stringFromDate:[value valueAtIndex:[entry index]]]],
                                                                     nil]
                                                   attributes:nil];
                       [xmlValue addChild:xmlItem];
@@ -636,7 +636,7 @@ absyncPersonPropertyWeighting()
 
 /**
  * Value accessor.  Caches the result of XML lookups to speed up
- * absync.
+ * xmlabsync.
  *
  * \param propertyName the name of the property to access
  * \return An NSArray object containing the result of looking up the
@@ -672,7 +672,7 @@ absyncPersonPropertyWeighting()
 
 /**
  * Value accessor.  Caches the result of XML lookups to speed up
- * absync.
+ * xmlabsync.
  *
  * \param propertyName the name of the property to access
  * \return Returns the last element in the NSArray object containing
@@ -690,7 +690,7 @@ absyncPersonPropertyWeighting()
 
 /**
  * Value accessor.  Caches the result of XML lookups to speed up
- * absync.
+ * xmlabsync.
  *
  * \param propertyName the name of the property to access
  * \return Returns the string value of the last element in the NSArray
@@ -850,7 +850,7 @@ absyncPersonPropertyWeighting()
  * \return An NSXMLDocument representing the passed Address Book object.
  */
 NSXMLDocument*
-absyncAddressBookBuildXml ( ABAddressBook *abook )
+xmlabsyncAddressBookBuildXml ( ABAddressBook *abook )
 {
   // sort the address book entries
   NSArray      *people  = [[abook people] sortedArrayUsingSelector:@selector(compare:)];
@@ -871,7 +871,7 @@ absyncAddressBookBuildXml ( ABAddressBook *abook )
 void
 printVersion()
 {
-  printf("absync Version %d.%d\n", absync_VERSION_MAJOR, absync_VERSION_MINOR);
+  printf("xmlabsync Version %d.%d\n", xmlabsync_VERSION_MAJOR, xmlabsync_VERSION_MINOR);
 }
 
 /**
@@ -889,25 +889,25 @@ printHelp()
   printf("\n");
   printf("Syntax:\n");
   printf("\n");
-  printf("   absync -w OUTFILE.XML\n");
-  printf("   absync [--no-update] [--no-delete] -r INFILE.XML\n");
-  printf("   absync --replace INFILE.XML\n");
-  printf("   absync --delete\n");
+  printf("   xmlabsync -w OUTFILE.XML\n");
+  printf("   xmlabsync [--no-update] [--no-delete] -r INFILE.XML\n");
+  printf("   xmlabsync --replace INFILE.XML\n");
+  printf("   xmlabsync --delete\n");
   printf("\n");
-  printf("absync -w dumps the Address Book to the named file (or standard output\n");
+  printf("xmlabsync -w dumps the Address Book to the named file (or standard output\n");
   printf("if filename is \"-\").\n");
   printf("\n");
-  printf("absync -r reads an XML file (or standard input if filename is \"-\"),\n");
+  printf("xmlabsync -r reads an XML file (or standard input if filename is \"-\"),\n");
   printf("creating, modifying, and deleting entries in the Address Book to\n");
   printf("mirror the data read.  If --no-update is specified, the tool will not\n");
   printf("modify any existing entries.  If --no-delete is specified, the tool\n");
   printf("will not delete any existing entries.\n");
   printf("\n");
-  printf("absync --replace deletes the local address book and replaces its\n");
+  printf("xmlabsync --replace deletes the local address book and replaces its\n");
   printf("contents with the entries loaded from the given XML file.  USE WITH\n");
   printf("CAUTION.\n");
   printf("\n");
-  printf("absync --delete deletes the local address book.  USE WITH CAUTION.\n");
+  printf("xmlabsync --delete deletes the local address book.  USE WITH CAUTION.\n");
   printf("\n");
 }
 
@@ -918,7 +918,7 @@ printHelp()
  * are done with it.
  */
 ABAddressBook*
-absyncGetAddressBook()
+xmlabsyncGetAddressBook()
 {
   ABAddressBook *abook = [ABAddressBook addressBook];
   [abook retain];
@@ -932,10 +932,10 @@ absyncGetAddressBook()
  * to standard output.
  */
 void
-absyncWriteAddressBook ( NSString *filename )
+xmlabsyncWriteAddressBook ( NSString *filename )
 {
-  ABAddressBook *abook   = absyncGetAddressBook();
-  NSXMLDocument *xmlDoc  = absyncAddressBookBuildXml(abook);
+  ABAddressBook *abook   = xmlabsyncGetAddressBook();
+  NSXMLDocument *xmlDoc  = xmlabsyncAddressBookBuildXml(abook);
   NSData        *data    = [xmlDoc XMLDataWithOptions:NSXMLNodePrettyPrint];
   if ([filename isEqualToString:@"-"])
     {
@@ -966,9 +966,9 @@ absyncWriteAddressBook ( NSString *filename )
  * Deletes the contents of the logged in user's Address Book.
  */
 void
-absyncDeleteAddressBook()
+xmlabsyncDeleteAddressBook()
 {
-  ABAddressBook *abook = absyncGetAddressBook();
+  ABAddressBook *abook = xmlabsyncGetAddressBook();
 
   // delete all groups
   for (ABGroup *group in [abook groups])
@@ -996,10 +996,10 @@ absyncDeleteAddressBook()
  * found.
  */
 ABPerson*
-absyncFindMatchingAbPerson ( XmlPersonRecord *xmlPerson,
+xmlabsyncFindMatchingAbPerson ( XmlPersonRecord *xmlPerson,
                              ABAddressBook   *abook )
 {
-  NSDictionary        *propertyWeighting  = absyncPersonPropertyWeighting();
+  NSDictionary        *propertyWeighting  = xmlabsyncPersonPropertyWeighting();
   NSMutableDictionary *props              = [NSMutableDictionary dictionaryWithCapacity:0];
   BOOL                 xmlPersonIsCompany = [xmlPerson isCompany];
   for (NSString *propName in [propertyWeighting allKeys])
@@ -1049,10 +1049,10 @@ absyncFindMatchingAbPerson ( XmlPersonRecord *xmlPerson,
  * record is found.
  */
 XmlPersonRecord*
-absyncFindMatchingXmlPerson ( ABPerson *abPerson,
+xmlabsyncFindMatchingXmlPerson ( ABPerson *abPerson,
                               NSArray  *xmlPeople )
 {
-  NSDictionary        *propertyWeighting  = absyncPersonPropertyWeighting();
+  NSDictionary        *propertyWeighting  = xmlabsyncPersonPropertyWeighting();
   NSMutableDictionary *props              = [NSMutableDictionary dictionaryWithCapacity:0];
   BOOL                 abPersonIsCompany  = [abPerson isCompany];
   for (NSString *propName in [propertyWeighting allKeys])
@@ -1099,7 +1099,7 @@ absyncFindMatchingXmlPerson ( ABPerson *abPerson,
  * \return An ABGroup object, or nil if no matching group is found.
  */
 ABGroup*
-absyncFindMatchingAbGroup ( NSString      *groupName,
+xmlabsyncFindMatchingAbGroup ( NSString      *groupName,
                             ABAddressBook *abook )
 {
   for (ABGroup *group in [abook groups])
@@ -1120,7 +1120,7 @@ absyncFindMatchingAbGroup ( NSString      *groupName,
  * \return An NSXMLDocument object, or nil if nothing could be loaded.
  */
 NSXMLDocument*
-absyncLoadXml ( NSString *filename )
+xmlabsyncLoadXml ( NSString *filename )
 {
   NSXMLDocument *xmlDoc   = nil;
   NSData        *xmlData  = nil;
@@ -1179,7 +1179,7 @@ absyncLoadXml ( NSString *filename )
  * the given XML document.
  */
 NSSet*
-absyncGetXmlGroupSet ( NSXMLDocument *xmldoc )
+xmlabsyncGetXmlGroupSet ( NSXMLDocument *xmldoc )
 {
   // returns an arrays of NSXMLElement objects
   NSError *err     = nil;
@@ -1201,7 +1201,7 @@ absyncGetXmlGroupSet ( NSXMLDocument *xmldoc )
  * \param abook the user's address book
  */
 void
-absyncCreateNewAbGroup ( NSString      *groupName,
+xmlabsyncCreateNewAbGroup ( NSString      *groupName,
                          ABAddressBook *abook )
 {
   ABGroup *group = [[ABGroup alloc] initWithAddressBook:abook];
@@ -1223,19 +1223,19 @@ absyncCreateNewAbGroup ( NSString      *groupName,
  * not found in the XML.
  */
 void
-absyncInjectXmlGroups ( NSXMLDocument *xmldoc,
+xmlabsyncInjectXmlGroups ( NSXMLDocument *xmldoc,
                         ABAddressBook *abook,
                         BOOL           update_flag,
                         BOOL           delete_flag )
 {
-  NSSet *groupSet = absyncGetXmlGroupSet(xmldoc);
+  NSSet *groupSet = xmlabsyncGetXmlGroupSet(xmldoc);
   for (NSString *groupName in groupSet)
     {
-      if (!absyncFindMatchingAbGroup(groupName, abook))
+      if (!xmlabsyncFindMatchingAbGroup(groupName, abook))
         {
           // create new group
           printf("%s\n", [[NSString stringWithFormat:@"Creating group %@", groupName] UTF8String]);
-          absyncCreateNewAbGroup(groupName, abook);
+          xmlabsyncCreateNewAbGroup(groupName, abook);
         }
     }
   if (delete_flag)
@@ -1265,7 +1265,7 @@ absyncInjectXmlGroups ( NSXMLDocument *xmldoc,
  * in the given XML document.
  */
 NSArray*
-absyncGetXmlPeople ( NSXMLDocument *xmldoc )
+xmlabsyncGetXmlPeople ( NSXMLDocument *xmldoc )
 {
   NSMutableArray *xmlPeople = [NSMutableArray arrayWithCapacity:0];
   NSError *err = nil;
@@ -1290,7 +1290,7 @@ absyncGetXmlPeople ( NSXMLDocument *xmldoc )
  * \return YES if a matching value is found; NO otherwise.
  */
 BOOL
-absyncMultiValueMatch ( ABMultiValue *multiValue1,
+xmlabsyncMultiValueMatch ( ABMultiValue *multiValue1,
                         NSInteger     idx,
                         ABMultiValue *multiValue2 )
 {
@@ -1313,7 +1313,7 @@ absyncMultiValueMatch ( ABMultiValue *multiValue1,
  * \return A ABMutableMultiValue object.
  */
 ABMutableMultiValue*
-absyncMakeMutableCopyOfMultiValue ( ABMultiValue *multivalue )
+xmlabsyncMakeMutableCopyOfMultiValue ( ABMultiValue *multivalue )
 {
   ABMutableMultiValue *copy = [[ABMutableMultiValue alloc] init];
   if (multivalue)
@@ -1351,7 +1351,7 @@ absyncMakeMutableCopyOfMultiValue ( ABMultiValue *multivalue )
  * this operation; NO otherwise.
  */
 BOOL
-absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
+xmlabsyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
                         ABPerson        *abPerson,
                         ABAddressBook   *abook,
                         BOOL             update_flag,
@@ -1359,7 +1359,7 @@ absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
 {
   // inject properties
   BOOL     changedRecord       = NO;
-  NSArray *relevantProperties  = absyncAbPersonRelevantProperties();
+  NSArray *relevantProperties  = xmlabsyncAbPersonRelevantProperties();
   NSArray *properties          = [xmlPerson getProperties:relevantProperties];
   // set relevant properties
   for (NSXMLElement *prop in properties)
@@ -1379,11 +1379,11 @@ absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
         }
       else if ([propType isEqualToString:@"date"])
         {
-          NSDate *propValue = [absyncIsoDateFormatter() dateFromString:[prop stringValue]];
+          NSDate *propValue = [xmlabsyncIsoDateFormatter() dateFromString:[prop stringValue]];
           // compare dates: two dates are equal if they represent the
           // same day (NSDate also has time information, which we
           // don't need for things like birthdays, etc.)
-          if (![[absyncIsoDateFormatter() stringFromDate:[abPerson valueForProperty:propName]] isEqual:[prop stringValue]])
+          if (![[xmlabsyncIsoDateFormatter() stringFromDate:[abPerson valueForProperty:propName]] isEqual:[prop stringValue]])
             {
               [abPerson setValue:propValue forProperty:propName];
               changedRecord = YES;
@@ -1474,16 +1474,16 @@ absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
             {
               NSError      *err    = nil;
               NSXMLElement *value  = [[NSXMLElement alloc] initWithXMLString:[multiValue valueAtIndex:idx] error:&err];
-              [multiValue replaceValueAtIndex:idx withValue:[absyncIsoDateFormatter() dateFromString:[value stringValue]]];
+              [multiValue replaceValueAtIndex:idx withValue:[xmlabsyncIsoDateFormatter() dateFromString:[value stringValue]]];
               [value release];
             }
         }
       // now do something with the multivalue
-      ABMutableMultiValue *abPersonMV = absyncMakeMutableCopyOfMultiValue([abPerson valueForProperty:propName]);
+      ABMutableMultiValue *abPersonMV = xmlabsyncMakeMutableCopyOfMultiValue([abPerson valueForProperty:propName]);
       int idx = 0;
       for (; idx < [multiValue count]; idx++)
         {
-          if (!absyncMultiValueMatch(multiValue, idx, abPersonMV))
+          if (!xmlabsyncMultiValueMatch(multiValue, idx, abPersonMV))
             {
               // add the multivalue
               [abPersonMV addValue:[multiValue valueAtIndex:idx]
@@ -1494,7 +1494,7 @@ absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
       // iterate backwards
       for (idx = [abPersonMV count] - 1; 0 <= idx; idx--)
         {
-          if (!absyncMultiValueMatch(abPersonMV, idx, multiValue))
+          if (!xmlabsyncMultiValueMatch(abPersonMV, idx, multiValue))
             {
               // remove the multivalue
               [abPersonMV removeValueAndLabelAtIndex:idx];
@@ -1568,7 +1568,7 @@ absyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
  * this operation; NO otherwise.
  */
 BOOL
-absyncInjectXmlPersonGroups ( XmlPersonRecord *xmlPerson,
+xmlabsyncInjectXmlPersonGroups ( XmlPersonRecord *xmlPerson,
                               ABPerson        *abPerson,
                               ABAddressBook   *abook,
                               BOOL             update_flag,
@@ -1579,7 +1579,7 @@ absyncInjectXmlPersonGroups ( XmlPersonRecord *xmlPerson,
   NSSet *xmlGroups     = [xmlPerson getGroups];
   for (NSString *groupName in xmlGroups)
     {
-      ABGroup *group = absyncFindMatchingAbGroup(groupName, abook);
+      ABGroup *group = xmlabsyncFindMatchingAbGroup(groupName, abook);
       if (group && ![[abPerson parentGroups] containsObject:group])
         {
           [group addMember:abPerson];
@@ -1616,16 +1616,16 @@ absyncInjectXmlPersonGroups ( XmlPersonRecord *xmlPerson,
  * document will be deleted from the user's Address Book.
  */
 void
-absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
+xmlabsyncInjectXmlPeople ( NSXMLDocument *xmldoc,
                         ABAddressBook *abook,
                         BOOL           update_flag,
                         BOOL           delete_flag )
 {
-  NSArray *xmlPeople = absyncGetXmlPeople(xmldoc);
+  NSArray *xmlPeople = xmlabsyncGetXmlPeople(xmldoc);
   // for each person in the XML document
   for (XmlPersonRecord *xmlPerson in xmlPeople)
     {
-      ABPerson *abPerson      = absyncFindMatchingAbPerson(xmlPerson, abook);
+      ABPerson *abPerson      = xmlabsyncFindMatchingAbPerson(xmlPerson, abook);
       BOOL      createdPerson = NO;
       // if the person is found
       if (abPerson)
@@ -1646,13 +1646,13 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
       if (abPerson)
         {
           // inject person properties into the person entry
-          BOOL updatedPerson = absyncInjectXmlPerson(xmlPerson, abPerson, abook, update_flag, delete_flag);
+          BOOL updatedPerson = xmlabsyncInjectXmlPerson(xmlPerson, abPerson, abook, update_flag, delete_flag);
           if (updatedPerson)
             {
               [abook save];
             }
           // inject person groups into the person entry
-          updatedPerson |= absyncInjectXmlPersonGroups(xmlPerson, abPerson, abook, update_flag, delete_flag);
+          updatedPerson |= xmlabsyncInjectXmlPersonGroups(xmlPerson, abPerson, abook, update_flag, delete_flag);
           if (updatedPerson)
             {
               if (!createdPerson)
@@ -1671,7 +1671,7 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
       for (ABPerson *abPerson in [abook people])
         {
           // if the person is not found in the XML doc
-          if (!absyncFindMatchingXmlPerson(abPerson, xmlPeople))
+          if (!xmlabsyncFindMatchingXmlPerson(abPerson, xmlPeople))
             {
               // delete the person
               printf("%s\n", [[NSString stringWithFormat:@"Deleting person %@", [abPerson fullName]] UTF8String]);
@@ -1691,7 +1691,7 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
     }
   if (xmlMe)
     {
-      ABPerson *abMe = absyncFindMatchingAbPerson(xmlMe, abook);
+      ABPerson *abMe = xmlabsyncFindMatchingAbPerson(xmlMe, abook);
       if (!abMe)
         {
           printf("%s\n", [[NSString stringWithFormat:@"WARNING: could not find matching record for person %@",
@@ -1728,12 +1728,12 @@ absyncInjectXmlPeople ( NSXMLDocument *xmldoc,
  * XML document
  */
 void
-absyncReadAddressBook ( NSString *filename,
+xmlabsyncReadAddressBook ( NSString *filename,
                         BOOL      update_flag,
                         BOOL      delete_flag )
 {
-  ABAddressBook *abook   = absyncGetAddressBook();
-  NSXMLDocument *xmlDoc  = absyncLoadXml(filename);
+  ABAddressBook *abook   = xmlabsyncGetAddressBook();
+  NSXMLDocument *xmlDoc  = xmlabsyncLoadXml(filename);
   if (!xmlDoc)
     {
       printf("ERROR: Could not load address book XML data\n");
@@ -1741,9 +1741,9 @@ absyncReadAddressBook ( NSString *filename,
       return;
     }
   // synchronize group information
-  absyncInjectXmlGroups(xmlDoc, abook, update_flag, delete_flag);
+  xmlabsyncInjectXmlGroups(xmlDoc, abook, update_flag, delete_flag);
   // synchronize person information
-  absyncInjectXmlPeople(xmlDoc, abook, update_flag, delete_flag);
+  xmlabsyncInjectXmlPeople(xmlDoc, abook, update_flag, delete_flag);
 
   [xmlDoc release];
   [abook release];
@@ -1881,17 +1881,17 @@ main ( int          argc,
   switch (mode)
     {
     case RUN_MODE_READ:
-      absyncReadAddressBook(filename, update_flag, delete_flag);
+      xmlabsyncReadAddressBook(filename, update_flag, delete_flag);
       break;
     case RUN_MODE_WRITE:
-      absyncWriteAddressBook(filename);
+      xmlabsyncWriteAddressBook(filename);
       break;
     case RUN_MODE_REPLACE:
-      absyncDeleteAddressBook();
-      absyncReadAddressBook(filename, update_flag, delete_flag);
+      xmlabsyncDeleteAddressBook();
+      xmlabsyncReadAddressBook(filename, update_flag, delete_flag);
       break;
     case RUN_MODE_DELETE:
-      absyncDeleteAddressBook();
+      xmlabsyncDeleteAddressBook();
       break;
     default:
       printf("ERROR: Invalid run mode\n");

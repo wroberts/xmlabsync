@@ -1,5 +1,5 @@
 # the name of the executable to build
-set(PROCESS_NAME "absync")
+set(PROCESS_NAME "xmlabsync")
 
 cmake_minimum_required (VERSION 2.6)
 
@@ -25,7 +25,7 @@ include_directories(google
                     "${PROJECT_BINARY_DIR}")
 
 set(PROCESS_SRCS
-  absync.m
+  xmlabsync.m
   google/GTMStringEncoding.m
   CMakeLists.txt
   )
