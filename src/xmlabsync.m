@@ -51,8 +51,8 @@ xmlabsyncIsoDateFormatter()
   if (!CACHE_XMLABSYNCISODATEFORMATTER)
     {
       CACHE_XMLABSYNCISODATEFORMATTER = [[NSDateFormatter alloc]
-                                       initWithDateFormat:@"%Y-%m-%d"
-                                       allowNaturalLanguage:NO];
+                                          initWithDateFormat:@"%Y-%m-%d"
+                                          allowNaturalLanguage:NO];
     }
   return CACHE_XMLABSYNCISODATEFORMATTER;
 }
@@ -71,40 +71,40 @@ xmlabsyncAbPersonRelevantProperties()
   if (!CACHE_XMLABSYNCABPERSONRELEVANTPROPERTIES)
     {
       CACHE_XMLABSYNCABPERSONRELEVANTPROPERTIES = [NSArray arrayWithObjects:
-                                                          kABTitleProperty,
-                                                        kABFirstNameProperty,
-                                                        kABFirstNamePhoneticProperty,
-                                                        kABMiddleNameProperty,
-                                                        kABMiddleNamePhoneticProperty,
-                                                        kABLastNameProperty,
-                                                        kABLastNamePhoneticProperty,
-                                                        kABSuffixProperty,
-                                                        kABNicknameProperty,
-                                                        kABMaidenNameProperty,
-                                                        kABJobTitleProperty,
-                                                        kABBirthdayProperty,
-                                                        //kABBirthdayComponentsProperty, //OS X 10.7+ only
-                                                        kABOrganizationProperty,
-                                                        //kABHomePageProperty, // deprecated OS X 10.4+
-                                                        kABURLsProperty,
-                                                        kABCalendarURIsProperty,
-                                                        kABEmailProperty,
-                                                        kABAddressProperty,
-                                                        kABOtherDatesProperty,
-                                                        //kABOtherDateComponentsProperty, //OS X 10.7+ only
-                                                        kABRelatedNamesProperty,
-                                                        kABDepartmentProperty,
-                                                        kABPersonFlags,
-                                                        kABPhoneProperty,
-                                                        //kABInstantMessageProperty, //OS X 10.7+ only
-                                                        kABAIMInstantProperty,
-                                                        kABJabberInstantProperty,
-                                                        kABMSNInstantProperty,
-                                                        kABYahooInstantProperty,
-                                                        kABICQInstantProperty,
-                                                        kABNoteProperty,
-                                                        //kABSocialProfileProperty, //OS X 10.7+ only
-                                                        nil];
+                                                             kABTitleProperty,
+                                                           kABFirstNameProperty,
+                                                           kABFirstNamePhoneticProperty,
+                                                           kABMiddleNameProperty,
+                                                           kABMiddleNamePhoneticProperty,
+                                                           kABLastNameProperty,
+                                                           kABLastNamePhoneticProperty,
+                                                           kABSuffixProperty,
+                                                           kABNicknameProperty,
+                                                           kABMaidenNameProperty,
+                                                           kABJobTitleProperty,
+                                                           kABBirthdayProperty,
+                                                           //kABBirthdayComponentsProperty, //OS X 10.7+ only
+                                                           kABOrganizationProperty,
+                                                           //kABHomePageProperty, // deprecated OS X 10.4+
+                                                           kABURLsProperty,
+                                                           kABCalendarURIsProperty,
+                                                           kABEmailProperty,
+                                                           kABAddressProperty,
+                                                           kABOtherDatesProperty,
+                                                           //kABOtherDateComponentsProperty, //OS X 10.7+ only
+                                                           kABRelatedNamesProperty,
+                                                           kABDepartmentProperty,
+                                                           kABPersonFlags,
+                                                           kABPhoneProperty,
+                                                           //kABInstantMessageProperty, //OS X 10.7+ only
+                                                           kABAIMInstantProperty,
+                                                           kABJabberInstantProperty,
+                                                           kABMSNInstantProperty,
+                                                           kABYahooInstantProperty,
+                                                           kABICQInstantProperty,
+                                                           kABNoteProperty,
+                                                           //kABSocialProfileProperty, //OS X 10.7+ only
+                                                           nil];
       [CACHE_XMLABSYNCABPERSONRELEVANTPROPERTIES retain];
     }
   return CACHE_XMLABSYNCABPERSONRELEVANTPROPERTIES;
@@ -126,10 +126,10 @@ xmlabsyncPersonPropertyWeighting()
   if (!CACHE_XMLABSYNCPERSONPROPERTYWEIGHTING)
     {
       CACHE_XMLABSYNCPERSONPROPERTYWEIGHTING = [NSDictionary dictionaryWithObjectsAndKeys:
-                                                            [NSNumber numberWithInteger:2], kABFirstNameProperty,
-                                                          [NSNumber numberWithInteger:1], kABMiddleNameProperty,
-                                                          [NSNumber numberWithInteger:3], kABLastNameProperty,
-                                                          [NSNumber numberWithInteger:5],  kABOrganizationProperty, nil];
+                                                               [NSNumber numberWithInteger:2], kABFirstNameProperty,
+                                                             [NSNumber numberWithInteger:1], kABMiddleNameProperty,
+                                                             [NSNumber numberWithInteger:3], kABLastNameProperty,
+                                                             [NSNumber numberWithInteger:5],  kABOrganizationProperty, nil];
       [CACHE_XMLABSYNCPERSONPROPERTYWEIGHTING retain];
     }
   return CACHE_XMLABSYNCPERSONPROPERTYWEIGHTING;
@@ -997,7 +997,7 @@ xmlabsyncDeleteAddressBook()
  */
 ABPerson*
 xmlabsyncFindMatchingAbPerson ( XmlPersonRecord *xmlPerson,
-                             ABAddressBook   *abook )
+                                ABAddressBook   *abook )
 {
   NSDictionary        *propertyWeighting  = xmlabsyncPersonPropertyWeighting();
   NSMutableDictionary *props              = [NSMutableDictionary dictionaryWithCapacity:0];
@@ -1050,7 +1050,7 @@ xmlabsyncFindMatchingAbPerson ( XmlPersonRecord *xmlPerson,
  */
 XmlPersonRecord*
 xmlabsyncFindMatchingXmlPerson ( ABPerson *abPerson,
-                              NSArray  *xmlPeople )
+                                 NSArray  *xmlPeople )
 {
   NSDictionary        *propertyWeighting  = xmlabsyncPersonPropertyWeighting();
   NSMutableDictionary *props              = [NSMutableDictionary dictionaryWithCapacity:0];
@@ -1100,7 +1100,7 @@ xmlabsyncFindMatchingXmlPerson ( ABPerson *abPerson,
  */
 ABGroup*
 xmlabsyncFindMatchingAbGroup ( NSString      *groupName,
-                            ABAddressBook *abook )
+                               ABAddressBook *abook )
 {
   for (ABGroup *group in [abook groups])
     {
@@ -1202,7 +1202,7 @@ xmlabsyncGetXmlGroupSet ( NSXMLDocument *xmldoc )
  */
 void
 xmlabsyncCreateNewAbGroup ( NSString      *groupName,
-                         ABAddressBook *abook )
+                            ABAddressBook *abook )
 {
   ABGroup *group = [[ABGroup alloc] initWithAddressBook:abook];
   [group setValue:groupName forProperty:kABGroupNameProperty];
@@ -1224,9 +1224,9 @@ xmlabsyncCreateNewAbGroup ( NSString      *groupName,
  */
 void
 xmlabsyncInjectXmlGroups ( NSXMLDocument *xmldoc,
-                        ABAddressBook *abook,
-                        BOOL           update_flag,
-                        BOOL           delete_flag )
+                           ABAddressBook *abook,
+                           BOOL           update_flag,
+                           BOOL           delete_flag )
 {
   NSSet *groupSet = xmlabsyncGetXmlGroupSet(xmldoc);
   for (NSString *groupName in groupSet)
@@ -1291,8 +1291,8 @@ xmlabsyncGetXmlPeople ( NSXMLDocument *xmldoc )
  */
 BOOL
 xmlabsyncMultiValueMatch ( ABMultiValue *multiValue1,
-                        NSInteger     idx,
-                        ABMultiValue *multiValue2 )
+                           NSInteger     idx,
+                           ABMultiValue *multiValue2 )
 {
   int idx2 = 0;
   for (; idx2 < [multiValue2 count]; idx2++)
@@ -1352,10 +1352,10 @@ xmlabsyncMakeMutableCopyOfMultiValue ( ABMultiValue *multivalue )
  */
 BOOL
 xmlabsyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
-                        ABPerson        *abPerson,
-                        ABAddressBook   *abook,
-                        BOOL             update_flag,
-                        BOOL             delete_flag )
+                           ABPerson        *abPerson,
+                           ABAddressBook   *abook,
+                           BOOL             update_flag,
+                           BOOL             delete_flag )
 {
   // inject properties
   BOOL     changedRecord       = NO;
@@ -1569,10 +1569,10 @@ xmlabsyncInjectXmlPerson ( XmlPersonRecord *xmlPerson,
  */
 BOOL
 xmlabsyncInjectXmlPersonGroups ( XmlPersonRecord *xmlPerson,
-                              ABPerson        *abPerson,
-                              ABAddressBook   *abook,
-                              BOOL             update_flag,
-                              BOOL             delete_flag )
+                                 ABPerson        *abPerson,
+                                 ABAddressBook   *abook,
+                                 BOOL             update_flag,
+                                 BOOL             delete_flag )
 {
   // inject groups
   BOOL   changedRecord = NO;
@@ -1617,9 +1617,9 @@ xmlabsyncInjectXmlPersonGroups ( XmlPersonRecord *xmlPerson,
  */
 void
 xmlabsyncInjectXmlPeople ( NSXMLDocument *xmldoc,
-                        ABAddressBook *abook,
-                        BOOL           update_flag,
-                        BOOL           delete_flag )
+                           ABAddressBook *abook,
+                           BOOL           update_flag,
+                           BOOL           delete_flag )
 {
   NSArray *xmlPeople = xmlabsyncGetXmlPeople(xmldoc);
   // for each person in the XML document
@@ -1729,8 +1729,8 @@ xmlabsyncInjectXmlPeople ( NSXMLDocument *xmldoc,
  */
 void
 xmlabsyncReadAddressBook ( NSString *filename,
-                        BOOL      update_flag,
-                        BOOL      delete_flag )
+                           BOOL      update_flag,
+                           BOOL      delete_flag )
 {
   ABAddressBook *abook   = xmlabsyncGetAddressBook();
   NSXMLDocument *xmlDoc  = xmlabsyncLoadXml(filename);
